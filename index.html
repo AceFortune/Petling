@@ -5197,17 +5197,47 @@ function playScoldAnimation(){
   sprite.classList.add('scold-shake');
   setTimeout(()=>sprite.classList.remove('scold-shake'), 650);
 }
+
+function snapshotPetRoamPosition(){
+  const rt=petRoamRuntime;
+  if(!rt || !rt.el || !rt.el.isConnected) return null;
+  return {x:rt.x, facing:rt.facing, dir:rt.dir};
+}
+
+function restorePetRoamPositionForReaction(snapshot, ms=2200){
+  if(!snapshot) return;
+  const rt=petRoamRuntime;
+  if(!rt || !rt.el || !rt.el.isConnected) return;
+
+  rt.x=snapshot.x;
+  rt.facing=snapshot.facing;
+  rt.dir=snapshot.dir;
+  const now=performance.now();
+  rt.pettingUntil=Math.max(rt.pettingUntil||0, now+ms);
+  rt.action='pause';
+  rt.until=rt.pettingUntil;
+  rt.hopStarted=0;
+  rt.hopDuration=1;
+  rt.el.style.left=rt.x.toFixed(2)+'%';
+  rt.el.style.transform=`translateX(-50%) translateY(0px) scaleX(${rt.facing})`;
+}
+
 function praise(){
   if (state.dead || state.phase !== 'alive') return;
+  const roamSnapshot=snapshotPetRoamPosition();
   recordHabit('praise');
   state.happiness = clamp(state.happiness + 4, 0, 100);
   state.bondMeter = clamp((state.bondMeter||0) + 0.5, 0, 100);
   state.traits.affection += 1;
   pushLog('👍 Praised — a happy little wiggle.');
-  saveState(); render(); playPraiseAnimation();
+  saveState();
+  render();
+  restorePetRoamPositionForReaction(roamSnapshot,2200);
+  playPraiseAnimation();
 }
 function scold(){
   if (state.dead || state.phase !== 'alive') return;
+  const roamSnapshot=snapshotPetRoamPosition();
   recordHabit('scold');
   if (state.wantsAttention){
     state.wantsAttention = false;
@@ -5220,7 +5250,10 @@ function scold(){
     state.bondMeter = clamp((state.bondMeter||0) - 1.5, 0, 100);
     pushLog("👎 Scolded for no reason — that wasn't fair.");
   }
-  saveState(); render(); playScoldAnimation();
+  saveState();
+  render();
+  restorePetRoamPositionForReaction(roamSnapshot,2200);
+  playScoldAnimation();
 }
 
 async function releaseAndRestart(){

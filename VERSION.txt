@@ -21,3 +21,10 @@ FIX 87 — AQUARIUM BLANK SCREEN ON CLOSE
 - Aquarium now exits through the shared closeOverlay(true) cleanup path, which removes the overlay, unlocks the page, removes the underlay blocker and re-renders the main Petling screen.
 - Lake cleanup is performed if the Aquarium is closed while in the lake view.
 - Aquarium view resets to the main tank for the next open.
+
+FIX 88 — PRAISE / SCOLD HOLD CURRENT POSITION
+- Praise and Scold now preserve the Petling's exact roaming position and facing direction before the UI refresh.
+- The reaction animation plays wherever the Petling was standing instead of resetting/teleporting it to the centre.
+- Petling remains stationary for about 2.2 seconds while the praise/scold reaction is visible.
+- Normal autonomous roaming then resumes from that same position.
+- Existing happiness, bond, affection, attention and scolding rules are unchanged.
