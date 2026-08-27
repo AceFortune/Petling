@@ -4108,7 +4108,7 @@ async function loadState(){
   if (eggShouldHatch()) { hatchEgg(); }
   else {
     render();
-    setTimeout(maybeShowMorningSurprise, 120);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(maybeShowMorningSurprise,40)));
   }
 
   fetchWeather();
@@ -4806,6 +4806,19 @@ function maybeShowMorningSurprise(){
   const hour=new Date().getHours();
   if(hour<6 || document.getElementById('mg-overlay') || document.getElementById('battle-overlay'))return;
   const s=state.pendingMorningSurprise;
+  if(!s || typeof s!=='object'){
+    state.pendingMorningSurprise=null;
+    saveState();
+    return;
+  }
+  if(!s.dream || typeof s.dream!=='string'){
+    s.dream=generateNightDream(s.day||dayKey(Date.now()));
+  }
+  const app=document.getElementById('app');
+  if(!app || !app.children.length){
+    requestAnimationFrame(()=>setTimeout(maybeShowMorningSurprise,40));
+    return;
+  }
   const div=document.createElement('div');
   div.className='overlay-panel pop-in morning-surprise-overlay';
   div.id='mg-overlay';
@@ -8741,7 +8754,13 @@ function gdmpAiAvailableSources(){
 }
 function gdmpAiEndgameTurn(){
   const sources=gdmpAiAvailableSources();
-  if(!sources.length){gdmpWin('player');return;}
+  if(!sources.length){
+    const aiPresidentAlive=gdmp.ai.army.some(c=>c&&c.rank==='K');
+    if(!aiPresidentAlive){gdmpWin('player');return;}
+    gdmp.message='AI has no legal attack source. Turn passes.';
+    gdmpFinishTurn('ai');
+    return;
+  }
 
   const knownKing=gdmpAiKnownArmyTargets().find(x=>x.c.rank==='K');
 
@@ -8795,13 +8814,8 @@ function gdmpAiEndgameTurn(){
 }
 function gdmpWin(side){
   if(!gdmp||gdmp.phase==='over')return;
-  const loser=gdmpSide(gdmpOpponent(side));
-  const presidentStillAlive=loser&&loser.army&&loser.army.some(c=>c&&c.rank==='K');
-  if(presidentStillAlive){
-    // A match can only end when an opposing President has genuinely been destroyed.
-    gdmpLog(`Win check blocked: the opposing President is still alive.`);
-    return;
-  }
+  // Any King is a President. The instant any King is destroyed, that player loses.
+  // A second surviving King must never veto the confirmed President kill.
   gdmp.phase='over';
   gdmp.winner=side;
   gdmp.turn=null;
@@ -15660,6 +15674,30 @@ body.petling-menu-open::before{
   @media (prefers-reduced-motion: reduce){
     .garden-grid-wrap::before { animation: none !important; }
   }
+
+
+/* ===== Fix 85: universal iPhone-safe menu close position ===== */
+#mg-overlay.overlay-panel > .overlay-close,
+#mg-overlay.battle-overlay > .overlay-close {
+  position:absolute !important;
+  top:calc(env(safe-area-inset-top, 0px) + 12px) !important;
+  right:calc(env(safe-area-inset-right, 0px) + 14px) !important;
+  z-index:300 !important;
+  width:44px !important;height:44px !important;min-width:44px !important;min-height:44px !important;
+  display:flex !important;align-items:center !important;justify-content:center !important;
+  box-sizing:border-box !important;border-radius:22px !important;
+  background:rgba(10,12,15,.76) !important;color:#fff !important;-webkit-text-fill-color:#fff !important;
+  touch-action:manipulation !important;
+}
+#mg-overlay .overlay-scroll-body > .overlay-close {
+  top:12px !important;right:14px !important;
+  width:44px !important;height:44px !important;min-width:44px !important;min-height:44px !important;
+}
+#mg-overlay.garden-overlay .g-garden-close {
+  top:12px !important;right:14px !important;
+  width:44px !important;height:44px !important;min-width:44px !important;min-height:44px !important;
+}
+
 </style>
 
 <button id="petling-test-reset" type="button" title="Testing only: clears saved game and returns to egg selection">
