@@ -7,3 +7,17 @@ FIX 85 — MENU / DREAM / GET DOWN MR PRESIDENT
 - Get Down Mr President: destroying ANY King now causes an immediate loss, even if another King remains.
 - Removed the erroneous win-check veto.
 - Hardened the endgame no-source fallback.
+
+FIX 86 — CASINO MOBILE CLOSE BUTTON
+- Fixed the remaining Casino close-button regression.
+- Casino X buttons are nested inside .casino-screen-swap, so Fix 85's direct-child menu selector did not reach them.
+- Every Casino screen now uses the same iPhone-safe top/right placement and 44x44 tap target as the Garden close button.
+- Applies to the Casino hub plus Roulette, Blackjack, Poker, Slots, Horse Racing and Get Down Mr President screens.
+- Casino-generated overlays are now explicitly tagged data-mode="casino" for reliable future targeting.
+
+FIX 87 — AQUARIUM BLANK SCREEN ON CLOSE
+- Fixed Aquarium closing to a blank screen.
+- Root cause: Aquarium manually removed #mg-overlay but did not clear the global petling-menu-open lock/scrim introduced by the menu occlusion system.
+- Aquarium now exits through the shared closeOverlay(true) cleanup path, which removes the overlay, unlocks the page, removes the underlay blocker and re-renders the main Petling screen.
+- Lake cleanup is performed if the Aquarium is closed while in the lake view.
+- Aquarium view resets to the main tank for the next open.

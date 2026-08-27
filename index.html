@@ -7624,6 +7624,7 @@ function casinoStringOverlay(markup){
   const div=document.createElement('div');
   div.className='overlay-panel pop-in';
   div.id='mg-overlay';
+  div.dataset.mode='casino';
   div.innerHTML=markup;
   return div;
 }
@@ -13031,10 +13032,14 @@ async function openAquarium(){
   renderAquariumRoot();
 }
 function closeAquarium(){
+  // Aquarium was manually removing its overlay instead of going through the
+  // shared close path. Since openOverlay() now locks the page with
+  // petling-menu-open, that left the full-screen underlay blocker active and
+  // produced a blank screen after closing the Aquarium.
   stopTankAnimation();
-  const ov = document.getElementById('mg-overlay');
-  if (ov) ov.remove();
-  render();
+  if (aquariumView === 'lake') leaveLakeCleanup();
+  aquariumView = 'tank';
+  closeOverlay(true);
 }
 function renderAquariumRoot(){
   const div = document.createElement('div');
@@ -15696,6 +15701,29 @@ body.petling-menu-open::before{
 #mg-overlay.garden-overlay .g-garden-close {
   top:12px !important;right:14px !important;
   width:44px !important;height:44px !important;min-width:44px !important;min-height:44px !important;
+}
+
+
+/* ===== Fix 86: Casino X uses the same safe placement as Garden ===== */
+#mg-overlay .casino-screen-swap > .overlay-close,
+#mg-overlay .casino-screen-swap .overlay-close {
+  position:fixed !important;
+  top:calc(env(safe-area-inset-top, 0px) + 12px) !important;
+  right:calc(env(safe-area-inset-right, 0px) + 14px) !important;
+  z-index:500 !important;
+  width:44px !important;
+  height:44px !important;
+  min-width:44px !important;
+  min-height:44px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  border-radius:22px !important;
+  background:rgba(10,12,15,.76) !important;
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  touch-action:manipulation !important;
 }
 
 </style>
