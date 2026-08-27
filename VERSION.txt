@@ -633,3 +633,11 @@ FIX 84 — PETTING HOLDS PETLING IN PLACE
 - The hold lasts about 3 seconds; additional valid petting taps extend the hold naturally.
 - After the hold, the existing roaming state machine resumes from that same position with a fresh movement action.
 - No teleport to centre and no reset of the current roaming x-coordinate.
+
+APP ICON / PWA SETUP
+- Added the selected retro Petling egg artwork as the official app icon.
+- Added iPhone apple-touch-icon (180x180).
+- Added 192x192 and 512x512 web-app icons.
+- Added browser favicon.
+- Added manifest.webmanifest with Petling app name, standalone display mode, portrait orientation, and matching theme colours.
+- Added Apple mobile-web-app metadata so Add to Home Screen launches more like an installed app.
