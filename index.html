@@ -9887,11 +9887,157 @@ function dailyQuestMenuStatus(){
   if(q.complete)return 'today’s adventure complete';
   return q.started?'continue today’s adventure':'today’s adventure awaits';
 }
+/* ================= FIX 108 — QUEST DIRECTOR 3.0 =================
+   A local world model sits behind the text parser. Scenes now expose entities
+   with properties/affordances; NPCs have knowledge, secrets, disposition and
+   truthfulness; Petling actions use real species stats; unclear commands can
+   request clarification instead of silently doing the wrong thing.
+================================================================ */
+function questEnsureDirector(q){
+  if(q.director)return q.director;
+  const r=questRng((q.seed^0x9e3779b9)>>>0);
+  const giverTraits=['cautious','proud','kind','greedy','nervous','stubborn','curious','secretive'];
+  const trait=qpick(r,giverTraits);
+  const knows={objective:true,firstLocation:true,relic:q.archetype==='relic',missing:['missing','rescue'].includes(q.archetype),foe:false,twist:false};
+  q.director={
+    version:3,
+    currentLocation:q.locs[0],
+    npc:{name:q.giver,trait,disposition:0,trust:1,truthfulness:(trait==='secretive'||trait==='greedy')?.72:.94,knows,secret:q.twist,angered:false,helped:false},
+    world:{},events:[],lastBattle:null
+  };
+  q.locs.forEach((loc,i)=>{
+    const base=[
+      {id:'door_'+i,name:'old wooden door',kind:'door',props:{wooden:true,flammable:true,breakable:true,locked:i>0,open:false,durability:2}},
+      {id:'brush_'+i,name:i%2?'thorny undergrowth':'fallen branches',kind:'obstacle',props:{cuttable:true,burnable:true,breakable:true,blocks:false}},
+      {id:'height_'+i,name:i%2?'crumbling wall':'low rocky ledge',kind:'terrain',props:{climbable:true,fragile:i===2}},
+      {id:'dark_'+i,name:'shadowed passage',kind:'terrain',props:{dark:true,searchable:true}}
+    ];
+    if(i===0)base.push({id:'clue0',name:q.clues[0],kind:'clue',props:{portable:true,searchable:true,hidden:true}});
+    if(i===1)base.push({id:'clue1',name:q.clues[1],kind:'clue',props:{portable:true,searchable:true,hidden:true}});
+    if(i===2&&q.archetype==='relic')base.push({id:'relic',name:q.relic,kind:'relic',props:{portable:true,valuable:true,hidden:true}});
+    q.director.world[loc]={visited:i===0,entities:base};
+  });
+  return q.director;
+}
+function questCurrentWorld(q){
+  const d=questEnsureDirector(q),loc=(q.context&&q.context.lastLocation&&q.locs.includes(q.context.lastLocation))?q.context.lastLocation:q.locs[Math.min(2,Math.max(0,q.scene-1))];
+  d.currentLocation=loc;return d.world[loc]||d.world[q.locs[0]];
+}
+function questEntity(q,raw){
+  const s=questNorm(raw),w=questCurrentWorld(q),all=[...(w?.entities||[])];
+  let best=null,bestLen=0;
+  for(const e of all){
+    const names=[e.name,e.kind,e.name.replace(/^(old|low|fallen|shadowed|thorny|crumbling) /,'')];
+    for(const n of names){const nn=questNorm(n);if(nn&&s.includes(nn)&&nn.length>bestLen){best=e;bestLen=nn.length}}
+  }
+  if(!best){
+    if(s.includes('door'))best=all.find(e=>e.kind==='door');
+    else if(s.includes('wall')||s.includes('ledge'))best=all.find(e=>e.props.climbable);
+    else if(s.includes('branches')||s.includes('bush')||s.includes('undergrowth'))best=all.find(e=>e.kind==='obstacle');
+    else if(s.includes('passage')||s.includes('dark'))best=all.find(e=>e.props.dark);
+  }
+  return best;
+}
+function questPetCapabilities(){
+  let st={};try{st=currentSpeciesStats()||{}}catch(e){}
+  const nums=Object.values(st).filter(v=>typeof v==='number');
+  const avg=nums.length?nums.reduce((a,b)=>a+b,0)/nums.length:5;
+  const get=(keys,fallback)=>{for(const k of keys)if(typeof st[k]==='number')return st[k];return fallback};
+  return {strength:get(['power','strength','attack','vigor'],avg),senses:get(['focus','sense','perception','speed'],avg),agility:get(['speed','agility','dexterity'],avg),courage:get(['vigor','defense','power'],avg),magic:get(['magic','focus','spirit'],avg)};
+}
+function questDirectorNPCQuestion(intent){
+  const q=getDailyQuest(),d=questEnsureDirector(q),n=d.npc,s=intent.raw;
+  if(!(intent.target===q.giver||s.includes(questNorm(q.giver))||s.includes('him')||s.includes('her')||s.includes('quest dude')))return null;
+  const asksLie=questHas(s,'lying','lie to me','telling the truth','trust you','trust him','trust her');
+  const asksWhere=questHas(s,'where were you','where was he','where was she','last night','when it happened');
+  const asksKnow=questHas(s,'what do you know','know about','heard about');
+  if(asksLie){
+    const suspicious=['betrayal','doublecross'].includes(q.twist);
+    if(suspicious&&q.scene<4){n.disposition-=.2;return `${q.giver} holds your gaze a fraction too long. “I've told you what you need to know.” ${state.name} does not look convinced.`}
+    return `${q.giver} looks ${n.trait==='proud'?'offended':'uneasy'} at the question. “As far as I know, yes.”`;
+  }
+  if(asksWhere)return `${q.giver} says they were near the edge of ${q.region} when the trouble began, and points you again towards the ${q.locs[0]}.`;
+  if(asksKnow){
+    if(q.archetype==='relic')return `${q.giver} knows the ${q.relic} disappeared before dawn, but claims not to know who took it.`;
+    if(['missing','rescue'].includes(q.archetype))return `${q.giver} knows the missing ${q.missing} was connected to the ${q.locs[0]}. Beyond that, their certainty fades.`;
+    return `${q.giver} knows the first reports came from around the ${q.locs[0]}, but admits much of the rest is rumour.`;
+  }
+  return null;
+}
+function questDirectorAction(intent){
+  const q=getDailyQuest(),d=questEnsureDirector(q),raw=intent.raw,a=intent.action,w=questCurrentWorld(q),e=questEntity(q,raw),caps=questPetCapabilities();
+  // Specific NPC cognition before generic quest answers.
+  if(a==='question'){
+    const npc=questDirectorNPCQuestion(intent);if(npc)return {stay:true,text:npc};
+  }
+  // Social actions alter a persistent disposition instead of being flavour-only.
+  if(['persuade','comfort','apologise','bribe','threaten','lie','accuse'].includes(a)){
+    const n=d.npc;
+    if(a==='comfort'||a==='apologise'){n.disposition+=1;n.trust+=.35;return {stay:true,text:`${q.giver}'s posture softens. Your approach has earned a little trust. (${q.giver} seems more receptive.)`}}
+    if(a==='bribe'){
+      if(state.gold<5)return {stay:true,text:`You reach for your gold, but you don't have the 5g you'd need to make a meaningful offer.`};
+      state.gold-=5;n.disposition+=n.trait==='greedy'?2:.4;n.trust+=n.trait==='greedy'?.7:.1;saveState();return {stay:true,text:n.trait==='greedy'?`${q.giver} palms the 5g almost immediately. “Perhaps I remember a little more…” Their attitude improves noticeably.`:`${q.giver} accepts the 5g reluctantly. It buys patience more than loyalty.`};
+    }
+    if(a==='threaten'||a==='accuse'){n.disposition-=1;n.trust-=.45;n.angered=n.disposition<-1;return {stay:true,text:`${q.giver}'s expression hardens. You may still get answers, but you've made future cooperation harder.`}}
+    if(a==='lie'){const success=(questHash(raw+q.seed)%100)<Math.max(20,55+n.disposition*8);n.trust+=success?.2:-.4;return {stay:true,text:success?`${q.giver} appears to believe you — for now.`:`${q.giver} narrows their eyes. “No. That doesn't sound right.” Your credibility suffers.`}}
+    if(a==='persuade'){const success=n.disposition+n.trust>-.5;n.disposition+=success?.5:-.1;return {stay:true,text:success?`${q.giver} considers your argument, then nods. “All right. I'll give you the benefit of the doubt.”`:`${q.giver} remains unconvinced. You'll need evidence or a different approach.`}}
+  }
+  // Physical world affordances.
+  if(e&&['use','search','take','pet'].includes(a)){
+    const p=e.props||{};
+    const wantsBreak=questHas(raw,'break','smash','bash','kick','force');
+    const wantsBurn=questHas(raw,'burn','fire','torch','light');
+    const wantsOpen=questHas(raw,'open','unlock','door');
+    const wantsClimb=questHas(raw,'climb','scale','over');
+    const wantsCut=questHas(raw,'cut','chop','slice');
+    if(a==='search'||questHas(raw,'inspect','examine')){
+      if(p.hidden){p.hidden=false;if(e.kind==='clue'){const idx=q.clues.indexOf(e.name);if(idx===0)q.flags.clue1=true;if(idx===1)q.flags.clue2=true}return {stay:true,text:`You search ${e.name} carefully and uncover something that had been concealed. ${e.kind==='clue'?`It is ${e.name}.`:`The details of it are now clear.`}`}}
+      return {stay:true,text:`You examine ${e.name}. ${p.locked?'It is locked. ':''}${p.wooden?'It is made of old timber. ':''}${p.dark?'Beyond it is difficult to see without light. ':''}${p.fragile?'It looks unstable.':''}`};
+    }
+    if(a==='take'&&p.portable){if(!q.inventory.includes(e.name))q.inventory.push(e.name);return {stay:true,text:`You take ${e.name}. It is now in your quest inventory.`}}
+    if(wantsOpen&&e.kind==='door'){
+      if(!p.locked){p.open=true;return {stay:true,text:`You open ${e.name}. The way beyond is clear.`}}
+      const hasKey=q.inventory.some(x=>/key/i.test(x));if(hasKey){p.locked=false;p.open=true;return {stay:true,text:`The key turns. ${e.name} unlocks and swings open.`}}
+      return {stay:true,text:`${e.name} is locked. You could look for a key — or try a less delicate solution.`};
+    }
+    if(wantsBreak&&p.breakable){const force=intent.actor==='pet'?caps.strength:5;if(force>=6||p.fragile){p.breakable=false;p.locked=false;p.open=true;return {stay:true,text:`${intent.actor==='pet'?state.name:'You'} ${intent.actor==='pet'?'slams into':'smash'} ${e.name}. It gives way with a crack. The obstacle is no longer blocking you.`}}return {stay:true,text:`${intent.actor==='pet'?state.name:'You'} try to force ${e.name}, but it barely moves. You may need another method.`};}
+    if(wantsBurn&&(p.flammable||p.burnable)){p.burned=true;p.locked=false;p.open=true;return {stay:true,text:`You set ${e.name} alight. Smoke curls through the air as the obstruction burns away. Effective — though hardly subtle.`}}
+    if(wantsCut&&p.cuttable){p.cut=true;return {stay:true,text:`You cut a path through ${e.name}. The route is now much easier to use.`}}
+    if(wantsClimb&&p.climbable){const ag=intent.actor==='pet'?caps.agility:5;if(ag>=5){return {stay:true,text:`${intent.actor==='pet'?state.name:'You'} climb ${e.name} and gain a better route and view of the area.`}}return {stay:true,text:`The climb is possible, but ${intent.actor==='pet'?state.name+' cannot quite manage it':'you cannot find a safe hold'} right now.`};}
+  }
+  // Rich Petling commands: stat-gated and target-aware.
+  if(intent.actor==='pet'){
+    if(questHas(raw,'sniff','track','smell','find','search')){
+      const score=caps.senses;if(score>=5){const idx=q.scene<2?0:1;q.flags['clue'+(idx+1)]=true;return {stay:true,text:`${state.name} works methodically, nose and ears alert. After a moment, ${state.name} identifies a trail you would have missed and draws your attention to ${q.clues[idx]}.`}}return {stay:true,text:`${state.name} tries hard to pick up the trail, but there are too many competing scents here. A more obvious clue may be needed first.`};
+    }
+    if(questHas(raw,'guard','protect','stay with')){q.flags.petGuarding=true;return {stay:true,text:`${state.name} plants itself protectively where you indicated, watching for danger. That may matter if trouble starts.`}}
+    if(questHas(raw,'distract','make noise','draw attention')){q.flags.petDistracting=true;return {stay:true,text:`${state.name} darts away and deliberately draws attention. For the moment, eyes are off you — a good opportunity to sneak or investigate.`}}
+    if(questHas(raw,'fetch','bring','get it')){const portable=(w.entities||[]).find(x=>x.props?.portable&&!x.props.hidden);if(portable){if(!q.inventory.includes(portable.name))q.inventory.push(portable.name);return {stay:true,text:`${state.name} retrieves ${portable.name} and brings it back to you.`}}return {stay:true,text:`${state.name} searches for something to fetch, but nothing accessible stands out.`};
+    }
+  }
+  // Compound command synergy: distraction + sneak is an actual solution.
+  if(intent.secondary){
+    const acts=[a,intent.secondary.action];if(acts.includes('sneak')&&(intent.actor==='pet'||q.flags.petDistracting)){q.flags.cleverBypass=true;return {stay:true,text:`Your two-part plan works. While ${state.name} keeps attention elsewhere, you slip past unnoticed and gain access to a better position.`}}
+  }
+  return null;
+}
+function questConfidence(intent){
+  if(intent.action==='unknown')return .15;
+  let c=.62;if(intent.topic)c+=.12;if(intent.target)c+=.1;if(intent.actor==='pet')c+=.05;if(intent.question)c+=.06;
+  if(intent.secondary)c+=.03;return Math.min(.98,c);
+}
+function questClarify(intent){
+  const q=getDailyQuest(),c=questConfidence(intent);if(c>=.48)return null;
+  q.context.pendingClarification=intent.raw;
+  return {stay:true,text:`I'm not confident I understood that correctly, so I haven't changed the quest. Try rephrasing with an action and target — for example “search the door”, “ask ${q.giver} about the relic”, “tell ${state.name} to sniff the tracks”, or “go to the ${q.locs[Math.min(2,q.scene)]}”.`};
+}
+
 function questEnsureInterpreterState(q){
-  if(!q.context)q.context={lastTopic:null,lastTarget:null,lastLocation:q.locs[0],lastSpeaker:q.giver,lastObject:null,pendingClarification:null};
+  if(!q.context)q.context={lastTopic:null,lastTarget:null,lastLocation:q.locs[0],lastSpeaker:q.giver,lastObject:null,pendingClarification:null,lastQuestion:null};
   if(!q.inventory)q.inventory=[];
   if(!q.discoveredLocations)q.discoveredLocations=[q.region,q.locs[0]];
   if(!q.peopleMet)q.peopleMet=[q.giver];
+  questEnsureDirector(q);
   return q.context;
 }
 function questNorm(s){return String(s||'').toLowerCase().replace(/[’]/g,"'").replace(/[^a-z0-9' -]/g,' ').replace(/\s+/g,' ').trim()}
@@ -9980,7 +10126,7 @@ function questUpdateContext(intent){
 }
 function questMetaAnswer(topic){
   const q=getDailyQuest();questEnsureInterpreterState(q);
-  if(topic==='help')return `You can speak naturally. Ask questions, investigate, travel, take/show/use objects, accuse or persuade people, give ${state.name} specific commands, or try environmental actions such as climb, break, burn, dig, listen and sneak. You can also type RECAP, OBJECTIVE, INVENTORY, PEOPLE or LOCATIONS.`;
+  if(topic==='help')return `You can speak naturally. The quest now tracks physical objects, NPC trust and Petling capabilities. Try specific plans such as “break the wooden door”, “burn the branches”, “ask ${q.giver} if they are lying”, “tell ${state.name} to sniff the passage”, “have ${state.name} distract them while I sneak past”, or “show ${q.giver} the clue”. You can also type RECAP, OBJECTIVE, INVENTORY, PEOPLE or LOCATIONS.`;
   if(topic==='inventory')return q.inventory.length?`Quest inventory: ${q.inventory.join(', ')}.`:`Your temporary quest inventory is empty.`;
   if(topic==='people')return `People encountered: ${q.peopleMet.join(', ')}.`;
   if(topic==='places')return `Discovered locations: ${q.discoveredLocations.join(', ')}.`;
@@ -10058,6 +10204,8 @@ function questSceneResponse(intent){
   const q=getDailyQuest(),s=q.scene,a=intent.action;
   questEnsureInterpreterState(q);questUpdateContext(intent);
   if(a==='meta')return {stay:true,text:questMetaAnswer(intent.topic)};
+  const clarification=questClarify(intent);if(clarification)return clarification;
+  const directed=questDirectorAction(intent);if(directed)return directed;
 
   // Informational questions do not advance the plot. They answer from the
   // generated quest's actual stored facts and from what the player has learned.
@@ -10141,6 +10289,7 @@ function questStartBattle(finalBattle=false){
 }
 function finishQuestBattle(p){
   const q=getDailyQuest(),won=p.win,finalBattle=p.questFinal;
+  questEnsureDirector(q);q.director.lastBattle={won,final:finalBattle,at:Date.now()};
   if(won){state.gold+=p.gold;gainXP(p.xp);pushLog(`Quest battle victory! +${p.gold}g +${p.xp}xp`)}
   else{state.health=clamp(state.health-p.dmg,0,100);pushLog(`Lost a quest battle. -${p.dmg} health`)}
   q.flags.pendingBattle=null;

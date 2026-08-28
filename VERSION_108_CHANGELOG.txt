@@ -1,0 +1,16 @@
+PETLING FIX 108 — QUEST DIRECTOR 3.0
+
+- Added a persistent local world model behind Daily Quests.
+- Generated quest locations contain interactive doors, obstacles, climbable terrain, dark/searchable spaces, clues and relevant relics.
+- Objects have affordances such as locked, wooden, flammable, breakable, cuttable, climbable, portable, hidden and fragile.
+- Creative commands can alter world state: open/unlock, smash, burn, cut, climb, search, take and fetch.
+- NPC quest givers now have persistent personality, trust, disposition, truthfulness and hidden knowledge.
+- Social actions such as persuading, comforting, apologising, bribing, lying, threatening and accusing now alter that relationship.
+- Added specific NPC questioning for trust/lying, whereabouts and knowledge.
+- Petling quest actions consult actual species stats to derive strength, senses, agility, courage and magic capability.
+- Petlings can track, guard, distract and fetch, with outcomes depending on capability and scene state.
+- Added compound-plan synergy such as distracting an NPC while the player sneaks.
+- Added parser confidence scoring: very unclear input asks for a rephrase rather than silently performing the wrong story action.
+- Quest battles record their outcome in the Director world state.
+- The strict one-quest-per-calendar-day rule remains unchanged; unfinished quests still expire at the date change.
+- No external AI/API is required.
