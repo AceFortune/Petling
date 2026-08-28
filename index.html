@@ -2127,6 +2127,83 @@ img,
 @keyframes gPlantSway{0%,100%{transform:rotate(-.5deg)}50%{transform:rotate(.7deg)}}
 
 
+
+/* ===== Fix 102: Craps ===== */
+.craps-table{
+  width:100%;max-width:430px;margin:8px auto 0;padding:12px 10px 10px;
+  box-sizing:border-box;border:2px solid #855073;border-radius:12px;
+  background:linear-gradient(180deg,#183f31,#102c24);
+  box-shadow:inset 0 0 24px rgba(0,0,0,.34),0 2px 4px rgba(0,0,0,.28);
+}
+.craps-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font:10px var(--font-display);letter-spacing:.8px;color:#d9d6c5;margin-bottom:9px;
+}
+.craps-point{
+  padding:4px 7px;border:1px solid rgba(244,222,175,.35);border-radius:5px;
+  background:rgba(0,0,0,.2);color:#f4deaf;white-space:nowrap;
+}
+.craps-dice{display:flex;justify-content:center;gap:14px;margin:12px 0 9px;min-height:64px;}
+.craps-die{
+  width:60px;height:60px;border-radius:9px;background:#eee9dc;color:#24141e;
+  border:3px solid #b9a98c;display:flex;align-items:center;justify-content:center;
+  font:35px/1 var(--font-display);box-shadow:0 4px 7px rgba(0,0,0,.32),inset 0 2px 4px rgba(255,255,255,.55);
+}
+.craps-die.rolling{animation:crapsRoll .38s ease-in-out;}
+@keyframes crapsRoll{
+  0%{transform:rotate(0) scale(1)}
+  35%{transform:rotate(13deg) scale(.9)}
+  70%{transform:rotate(-10deg) scale(1.08)}
+  100%{transform:none}
+}
+.craps-total{text-align:center;color:#f4deaf;font:12px var(--font-display);letter-spacing:1px;margin-bottom:9px;}
+.craps-bet-types{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0;}
+.craps-bet-type{
+  border:1px solid #79516d;border-radius:7px;padding:8px 4px;background:#251925;
+  color:#d6b5ca;font:9px var(--font-display);cursor:pointer;min-height:42px;
+}
+.craps-bet-type small{display:block;font:8px var(--font-mono);color:#96939e;margin-top:3px;line-height:1.25;}
+.craps-bet-type.selected{border-color:#f2a6d0;color:#f2a6d0;box-shadow:0 0 0 1px rgba(242,166,208,.25) inset;}
+.craps-bet-type:disabled{opacity:.45;cursor:default;}
+.craps-rules{
+  margin:10px 0 0;padding:8px;border-radius:7px;background:rgba(0,0,0,.18);
+  color:#aaa8ae;font:9px/1.45 var(--font-mono);text-align:left;
+}
+.craps-history{margin-top:8px;text-align:center;color:#8fa99b;font:9px var(--font-mono);min-height:14px;}
+
+
+
+/* ===== Fix 103: Petling Penny Pusher ===== */
+.pusher-wrap{width:min(430px,100%);margin:4px auto 0;box-sizing:border-box}
+.pusher-cabinet{position:relative;padding:9px 9px 12px;border:3px solid #51394e;border-radius:13px;background:#17131d;box-shadow:inset 0 0 0 2px #8c617c,0 5px 12px rgba(0,0,0,.35);overflow:hidden}
+.pusher-marquee{text-align:center;font:12px var(--font-display);letter-spacing:1.5px;color:#f3b7d7;padding:5px;background:#251a2b;border:1px solid #744d68;border-radius:6px;box-shadow:0 0 10px rgba(236,119,181,.15)}
+.pusher-lights{height:5px;margin:5px 2px 7px;background:repeating-linear-gradient(90deg,#d79bbd 0 5px,transparent 5px 12px);opacity:.75;animation:pusherLights 1.1s steps(2) infinite}
+@keyframes pusherLights{50%{transform:translateX(6px);opacity:.4}}
+.pusher-stage{position:relative;height:330px;background:linear-gradient(#102c31,#183b3a 45%,#112a28);border:2px solid #73566d;border-radius:8px;overflow:hidden;touch-action:none;box-shadow:inset 0 0 30px rgba(0,0,0,.5)}
+.pusher-back{position:absolute;left:6%;right:6%;top:8%;height:46%;border:1px solid rgba(218,199,160,.24);background:linear-gradient(180deg,rgba(39,81,75,.7),rgba(20,53,50,.9));clip-path:polygon(7% 0,93% 0,100% 100%,0 100%)}
+.pusher-shelf{position:absolute;left:8%;right:8%;height:44%;top:21%;border:2px solid #7d8177;border-radius:4px;background:linear-gradient(#646c66,#424b48);box-shadow:0 7px 0 #242b2a,0 12px 12px rgba(0,0,0,.4);transform:translateY(var(--push-y,0px));transition:transform .06s linear}
+.pusher-lip{position:absolute;left:4%;right:4%;top:66%;height:12px;background:#888879;border:2px solid #343738;box-shadow:0 5px 0 #1c2222;z-index:6}
+.pusher-chute{position:absolute;left:13%;right:13%;top:72%;bottom:0;background:linear-gradient(180deg,#151c1d,#080b0d);clip-path:polygon(0 0,100% 0,84% 100%,16% 100%);border-top:1px solid #4c5551}
+.pusher-dropper{position:absolute;top:3px;width:28px;height:35px;margin-left:-14px;border:2px solid #77736d;border-radius:4px 4px 10px 10px;background:#302b30;z-index:20;box-shadow:0 3px 0 #161317}
+.pusher-dropper:after{content:"";position:absolute;left:8px;bottom:-9px;width:8px;height:10px;background:#91877a;border-radius:0 0 4px 4px}
+.pusher-coin{position:absolute;width:22px;height:22px;border-radius:50%;box-sizing:border-box;background:radial-gradient(circle at 35% 30%,#fff0a8 0 8%,#d7a946 16%,#9a6d24 70%,#684819 100%);border:2px solid #e0bd68;box-shadow:0 2px 2px rgba(0,0,0,.5);z-index:8;display:flex;align-items:center;justify-content:center;color:#6c4817;font:7px var(--font-display);will-change:transform,left,top}
+.pusher-coin.gold{background:radial-gradient(circle at 35% 30%,#fff8bf 0 10%,#efc84d 22%,#c18219 75%,#70440d 100%);border-color:#ffe07b;box-shadow:0 0 6px rgba(255,211,83,.45),0 2px 2px rgba(0,0,0,.5)}
+.pusher-coin.chip{border-radius:5px;background:#8e3d78;border-color:#f0a5d0;color:white;transform:rotate(10deg)}
+.pusher-coin.capsule{width:25px;height:18px;border-radius:10px;background:linear-gradient(90deg,#c7e7e4 0 50%,#e7a5c7 50%);border-color:#e9dfcf;color:#472c43}
+.pusher-coin.falling{z-index:12}
+.pusher-coin.won{animation:pusherWin .35s ease-in forwards}
+@keyframes pusherWin{to{transform:translateY(75px) rotate(120deg);opacity:0}}
+.pusher-hud{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin:7px 0}
+.pusher-stat{padding:6px 3px;background:#241a26;border:1px solid #68465e;border-radius:5px;text-align:center;color:#d6c6d1;font:8px var(--font-display)}
+.pusher-stat b{display:block;color:#f2b5d4;font-size:10px;margin-top:2px}
+.pusher-controls{display:grid;grid-template-columns:44px 1fr 44px;gap:6px}
+.pusher-btn{border:2px solid #704d67;border-radius:7px;background:#302133;color:#efb5d4;font:11px var(--font-display);padding:10px 5px;box-shadow:0 3px 0 #160f18;cursor:pointer}
+.pusher-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #160f18}
+.pusher-btn.drop{background:#5b294d;color:#ffd4e9}
+.pusher-btn:disabled{opacity:.4}
+.pusher-message{min-height:27px;margin-top:7px;text-align:center;color:#a9a2aa;font:9px/1.4 var(--font-mono)}
+.pusher-legend{text-align:center;color:#817b82;font:8px var(--font-mono);margin-top:5px}
+
 /* ===== Garden Overhaul Fix 2: seamless Casino navigation ===== */
 #mg-overlay .casino-screen-swap {
   animation: casinoContentIn .12s ease-out;
@@ -7634,6 +7711,16 @@ function openCasino(){
         <div class="ml">SLOTS</div>
         <div class="msub">spin the reels</div>
       </div>
+      <div class="menu-card" onclick="startCraps()">
+        <span class="mi">⚄⚂</span>
+        <div class="ml">CRAPS</div>
+        <div class="msub">roll the dice · pass, don't pass or field</div>
+      </div>
+      <div class="menu-card" onclick="startCoinPusher()">
+        <span class="mi">◉</span>
+        <div class="ml">PENNY PUSHER</div>
+        <div class="msub">drop coins · shove the pile · chase prizes</div>
+      </div>
       <div class="menu-card" onclick="window.startHorseRacing()">
         <span class="mi">♞</span>
         <div class="ml">HORSE RACING</div>
@@ -7666,6 +7753,369 @@ function casinoStringOverlay(markup){
   div.innerHTML=markup;
   return div;
 }
+
+
+/* ---- Craps ----
+   Compact casino-table rules:
+   PASS LINE: come-out 7/11 wins; 2/3/12 loses. Otherwise a point is set.
+              Roll the point again before a 7 to win.
+   DON'T PASS: come-out 2/3 wins; 7/11 loses; 12 pushes. Once a point is set,
+               a 7 wins and the point loses.
+   FIELD: one-roll bet. 3/4/9/10/11 pay 1:1; 2 and 12 pay 2:1; 5/6/7/8 lose.
+*/
+let crapsState=null;
+const CRAPS_DIE_FACE=['','⚀','⚁','⚂','⚃','⚄','⚅'];
+
+function crapsRandDie(){
+  try{
+    if(window.crypto&&window.crypto.getRandomValues){
+      const a=new Uint32Array(1);window.crypto.getRandomValues(a);return (a[0]%6)+1;
+    }
+  }catch(e){}
+  return 1+Math.floor(Math.random()*6);
+}
+function crapsNewState(){
+  return {
+    bet:0, betType:'pass', point:null, phase:'bet',
+    dice:[1,1], total:2, rolling:false,
+    msg:'Choose a bet and stake, then make the come-out roll.',
+    history:[]
+  };
+}
+function startCraps(){
+  crapsState=crapsNewState();
+  swapOverlayContent(renderCrapsUI());
+}
+function crapsSetBet(v){
+  if(!crapsState||crapsState.rolling||crapsState.point!==null)return;
+  crapsState.bet=v;
+  swapOverlayContent(renderCrapsUI());
+}
+function crapsSetType(type){
+  if(!crapsState||crapsState.rolling||crapsState.point!==null)return;
+  if(!['pass','dont','field'].includes(type))return;
+  crapsState.betType=type;
+  crapsState.msg=type==='pass'
+    ?'PASS LINE — 7 or 11 wins the come-out roll.'
+    :type==='dont'
+      ?"DON'T PASS — 2 or 3 wins; 12 pushes."
+      :'FIELD — a single-roll bet.';
+  swapOverlayContent(renderCrapsUI());
+}
+function crapsLogRoll(a,b){
+  crapsState.history.unshift(`${a}+${b}=${a+b}`);
+  crapsState.history=crapsState.history.slice(0,7);
+}
+function crapsSettle(outcome,multiplier=0,text=''){
+  const c=crapsState, stake=c.bet;
+  if(outcome==='win'){
+    if(stake>0){
+      const payout=stake*(1+multiplier);
+      state.gold+=payout;
+      c.msg=`${text} +${stake*multiplier}g profit (${payout}g returned).`;
+      pushLog(`⚄ Craps: ${text} +${stake*multiplier}g`);
+    }else{
+      c.msg=`${text} Practice roll — no payout.`;
+      pushLog(`⚄ Craps practice: ${text}`);
+    }
+  }else if(outcome==='push'){
+    if(stake>0)state.gold+=stake;
+    c.msg=`${text} ${stake>0?'Stake returned.':'Practice roll.'}`;
+    pushLog(`⚄ Craps: ${text}`);
+  }else{
+    c.msg=`${text}${stake===0?' Practice roll — no gold lost.':''}`;
+    pushLog(stake>0?`⚄ Craps: lost ${stake}g`:`⚄ Craps practice: ${text}`);
+  }
+  c.phase='result';c.point=null;
+  saveState();
+}
+function crapsResolveRoll(total){
+  const c=crapsState;
+  if(c.betType==='field'){
+    if(total===2||total===12)crapsSettle('win',2,`${total}! FIELD pays 2:1.`);
+    else if([3,4,9,10,11].includes(total))crapsSettle('win',1,`${total}! FIELD wins.`);
+    else crapsSettle('lose',0,`${total} — FIELD loses.`);
+    return;
+  }
+
+  const comeOut=c.point===null;
+  if(comeOut){
+    if(c.betType==='pass'){
+      if(total===7||total===11){crapsSettle('win',1,`${total} — natural! PASS wins.`);return;}
+      if(total===2||total===3||total===12){crapsSettle('lose',0,`${total} — craps. PASS loses.`);return;}
+      c.point=total;c.phase='point';c.msg=`POINT IS ${total}. Roll ${total} again before a 7.`;return;
+    }else{
+      if(total===2||total===3){crapsSettle('win',1,`${total} — DON'T PASS wins.`);return;}
+      if(total===12){crapsSettle('push',0,`12 — bar twelve. DON'T PASS pushes.`);return;}
+      if(total===7||total===11){crapsSettle('lose',0,`${total} — DON'T PASS loses.`);return;}
+      c.point=total;c.phase='point';c.msg=`POINT IS ${total}. DON'T PASS wants a 7 before ${total}.`;return;
+    }
+  }
+
+  if(c.betType==='pass'){
+    if(total===c.point){crapsSettle('win',1,`${total} — point made! PASS wins.`);return;}
+    if(total===7){crapsSettle('lose',0,'Seven-out. PASS loses.');return;}
+    c.msg=`${total}. Point stays ${c.point}. Roll again.`;
+  }else{
+    if(total===7){crapsSettle('win',1,'Seven-out. DON’T PASS wins.');return;}
+    if(total===c.point){crapsSettle('lose',0,`${total} — point made. DON’T PASS loses.`);return;}
+    c.msg=`${total}. Point stays ${c.point}. Roll again.`;
+  }
+}
+function crapsRoll(){
+  const c=crapsState;
+  if(!c||c.rolling||c.phase==='result')return;
+  if(c.phase==='bet'){
+    if(state.gold<c.bet){showToast('Not enough gold');return;}
+    if(c.bet>0){state.gold-=c.bet;saveState();}
+    c.phase=c.betType==='field'?'rolling':'comeout';
+  }
+  c.rolling=true;
+  const a=crapsRandDie(),b=crapsRandDie();
+  c.dice=[a,b];c.total=a+b;
+  swapOverlayContent(renderCrapsUI(true));
+  setTimeout(()=>{
+    if(!crapsState)return;
+    c.rolling=false;
+    crapsLogRoll(a,b);
+    crapsResolveRoll(a+b);
+    saveState();
+    swapOverlayContent(renderCrapsUI());
+  },420);
+}
+function renderCrapsUI(forceRolling=false){
+  const c=crapsState||crapsNewState();
+  const locked=c.point!==null||c.phase!=='bet';
+  const pointText=c.point===null?'COME-OUT':`POINT ${c.point}`;
+  const history=c.history.length?c.history.join(' · '):'No rolls yet';
+  const div=document.createElement('div');
+  div.className='overlay-panel pop-in';div.id='mg-overlay';div.dataset.mode='casino';
+  div.innerHTML=`
+    <div class="casino-screen-swap">
+      <button class="overlay-close" onclick="openCasino()">×</button>
+      <div class="overlay-title">CRAPS</div>
+      <div class="craps-table">
+        <div class="craps-head"><span>GOLD ${state.gold}g</span><span class="craps-point">${pointText}</span></div>
+        <div class="craps-dice">
+          <div class="craps-die ${(c.rolling||forceRolling)?'rolling':''}">${CRAPS_DIE_FACE[c.dice[0]]}</div>
+          <div class="craps-die ${(c.rolling||forceRolling)?'rolling':''}">${CRAPS_DIE_FACE[c.dice[1]]}</div>
+        </div>
+        <div class="craps-total">${c.history.length||c.point!==null||c.phase==='result'?`TOTAL ${c.total}`:'ROLL THE DICE'}</div>
+
+        <div class="craps-bet-types">
+          <button class="craps-bet-type ${c.betType==='pass'?'selected':''}" onclick="crapsSetType('pass')" ${locked?'disabled':''}>PASS LINE<small>7/11 on come-out</small></button>
+          <button class="craps-bet-type ${c.betType==='dont'?'selected':''}" onclick="crapsSetType('dont')" ${locked?'disabled':''}>DON'T PASS<small>bet against shooter</small></button>
+          <button class="craps-bet-type ${c.betType==='field'?'selected':''}" onclick="crapsSetType('field')" ${locked?'disabled':''}>FIELD<small>single-roll bet</small></button>
+        </div>
+
+        ${!locked?`<div class="bet-row">${[0,5,10,20].map(v=>`<div class="bet-chip ${c.bet===v?'selected':''}" onclick="crapsSetBet(${v})">${v===0?'FREE':v+'g'}</div>`).join('')}</div>`:''}
+
+        ${c.phase==='result'
+          ?`<button class="mg-action-btn" onclick="startCraps()">NEW ROUND</button>`
+          :`<button class="mg-action-btn" onclick="crapsRoll()" ${c.rolling?'disabled':''}>${c.point===null?'COME-OUT ROLL':'ROLL AGAIN'}</button>`}
+
+        <div class="craps-history">${history}</div>
+        <div class="craps-rules">
+          <b>PASS:</b> come-out 7/11 wins; 2/3/12 loses. Otherwise make the point again before 7.<br>
+          <b>DON'T PASS:</b> 2/3 wins; 7/11 loses; 12 pushes. After a point, 7 wins before the point repeats.<br>
+          <b>FIELD:</b> 3/4/9/10/11 pay 1:1; 2/12 pay 2:1; 5/6/7/8 lose.
+        </div>
+      </div>
+      <div class="battle-log">${c.msg}</div>
+    </div>`;
+  return div;
+}
+window.startCraps=startCraps;
+window.crapsSetBet=crapsSetBet;
+window.crapsSetType=crapsSetType;
+window.crapsRoll=crapsRoll;
+
+
+
+/* ---- Petling Penny Pusher ----
+   Purpose-built lightweight arcade physics: persistent board, horizontal drop
+   positioning, moving mechanical shelf, pile compression, neighbour shoves,
+   edge pressure and satisfying payout cascades. No external physics engine. */
+let pusherState=null,pusherRAF=0,pusherLast=0,pusherEls=new Map();
+function pusherSeed(){
+  const coins=[];let id=1;
+  // Dense staggered starting pile. Values/prizes are deterministic enough to
+  // create visible targets but positions get tiny natural variation.
+  for(let row=0;row<7;row++){
+    const n=7+(row%2);
+    for(let k=0;k<n;k++){
+      const x=17+k*(66/(n-1))+(Math.random()*2-1);
+      const y=31+row*5.3+(Math.random()*1.5-0.75);
+      const r=Math.random();
+      const type=r<.035?'capsule':r<.09?'chip':r<.17?'gold':'coin';
+      coins.push({id:id++,x,y,vx:0,vy:0,type,state:'shelf',value:type==='gold'?5:type==='chip'?10:type==='capsule'?25:1});
+    }
+  }
+  return {coins,nextId:id,dropX:50,pusher:0,pusherDir:1,lastDrop:0,winnings:0,spent:0,message:'Move the chute, then drop a coin.',running:true};
+}
+function startCoinPusher(){
+  if(!pusherState)pusherState=pusherSeed();
+  pusherState.running=true;
+  swapOverlayContent(renderCoinPusherUI());
+  requestAnimationFrame(()=>{pusherBindEls();pusherStartLoop();});
+}
+function pusherClose(){
+  if(pusherState)pusherState.running=false;
+  cancelAnimationFrame(pusherRAF);pusherRAF=0;pusherEls.clear();
+  openCasino();
+}
+function pusherMove(dir){
+  if(!pusherState)return;
+  pusherState.dropX=Math.max(12,Math.min(88,pusherState.dropX+dir*7));
+  const d=document.getElementById('pusher-dropper');if(d)d.style.left=pusherState.dropX+'%';
+}
+function pusherDrop(){
+  const s=pusherState;if(!s||Date.now()-s.lastDrop<450)return;
+  if(state.gold<1){s.message='You need 1g to drop a coin.';pusherUpdateHUD();return;}
+  state.gold-=1;s.spent++;s.lastDrop=Date.now();saveState();
+  s.coins.push({id:s.nextId++,x:s.dropX,y:9,vx:(Math.random()-.5)*.08,vy:.08,type:'coin',state:'fall',value:1});
+  s.message='CLINK! Watch the pile…';
+  pusherCreateMissingEls();pusherUpdateHUD();
+}
+function pusherBindEls(){
+  pusherEls.clear();
+  document.querySelectorAll('.pusher-coin[data-id]').forEach(el=>pusherEls.set(+el.dataset.id,el));
+}
+function pusherCreateMissingEls(){
+  const stage=document.getElementById('pusher-stage');if(!stage)return;
+  pusherState.coins.forEach(c=>{
+    if(pusherEls.has(c.id))return;
+    const el=document.createElement('div');el.className='pusher-coin '+c.type+(c.state==='fall'?' falling':'');
+    el.dataset.id=c.id;el.textContent=c.type==='gold'?'5':c.type==='chip'?'10':c.type==='capsule'?'★':'';
+    stage.appendChild(el);pusherEls.set(c.id,el);
+  });
+}
+function pusherPrizeName(c){return c.type==='capsule'?'MYSTERY CAPSULE':c.type==='chip'?'10G CHIP':c.type==='gold'?'GOLD COIN':'COIN';}
+function pusherWin(c){
+  const s=pusherState;if(c.state==='won')return;
+  c.state='won';s.winnings+=c.value;state.gold+=c.value;saveState();
+  s.message=`${pusherPrizeName(c)} DROPPED! +${c.value}g`;
+  pushLog(`◉ Penny Pusher: ${pusherPrizeName(c)} +${c.value}g`);
+  const el=pusherEls.get(c.id);if(el)el.classList.add('won');
+  setTimeout(()=>{pusherEls.get(c.id)?.remove();pusherEls.delete(c.id);},380);
+}
+function pusherPhysics(dt){
+  const s=pusherState;if(!s||!s.running)return;
+  // Mechanical shelf continuously advances and retreats.
+  s.pusher+=s.pusherDir*dt*.030;
+  if(s.pusher>=8){s.pusher=8;s.pusherDir=-1}
+  if(s.pusher<=0){s.pusher=0;s.pusherDir=1}
+  const forward=s.pusherDir>0 ? dt*.0028 : 0;
+
+  // Falling coins descend into the back of the pile.
+  for(const c of s.coins){
+    if(c.state==='won')continue;
+    if(c.state==='fall'){
+      c.vy+=dt*.00012;c.y+=c.vy*dt*.018;c.x+=c.vx*dt*.018;
+      if(c.y>=29){c.y=29;c.vy=0;c.state='shelf';}
+      continue;
+    }
+    // Every forward stroke transmits a little pressure through the pile.
+    c.y+=forward*(.7+Math.max(0,(c.y-30))/42);
+    c.vx*=.92;
+    c.x+=c.vx*dt*.01;
+    c.x=Math.max(10,Math.min(90,c.x));
+  }
+
+  // Pairwise lightweight pile collision / compression.
+  const live=s.coins.filter(c=>c.state==='shelf');
+  for(let pass=0;pass<2;pass++){
+    for(let a=0;a<live.length;a++)for(let b=a+1;b<live.length;b++){
+      const A=live[a],B=live[b],dx=B.x-A.x,dy=B.y-A.y;
+      const dist=Math.sqrt(dx*dx+dy*dy)||.01,min=5.15;
+      if(dist<min){
+        const overlap=(min-dist)*.48,nx=dx/dist,ny=dy/dist;
+        A.x-=nx*overlap;B.x+=nx*overlap;
+        // Bias compression toward the payout edge for arcade satisfaction.
+        if(s.pusherDir>0){A.y-=ny*overlap*.25;B.y+=Math.abs(ny)*overlap*.55+.025;}
+        else{A.y-=ny*overlap*.25;B.y+=ny*overlap*.25;}
+      }
+    }
+  }
+  // Side rails funnel coins inward; front lip becomes increasingly unstable.
+  for(const c of live){
+    if(c.x<13)c.x+=(13-c.x)*.12;
+    if(c.x>87)c.x-=(c.x-87)*.12;
+    if(c.y>66){
+      const over=c.y-66;
+      c.y+=over*.006*dt;
+      c.x+=(50-c.x)*.00022*dt;
+    }
+    if(c.y>75)pusherWin(c);
+  }
+  // Remove won coins from simulation after animation.
+  s.coins=s.coins.filter(c=>c.state!=='won'||pusherEls.has(c.id));
+}
+function pusherRenderFrame(){
+  const s=pusherState;if(!s)return;
+  const shelf=document.getElementById('pusher-shelf');if(shelf)shelf.style.setProperty('--push-y',s.pusher+'px');
+  const drop=document.getElementById('pusher-dropper');if(drop)drop.style.left=s.dropX+'%';
+  pusherCreateMissingEls();
+  for(const c of s.coins){
+    const el=pusherEls.get(c.id);if(!el||c.state==='won')continue;
+    el.style.left=`calc(${c.x}% - 11px)`;el.style.top=`calc(${c.y}% - 11px)`;
+    el.style.transform=`rotate(${((c.id*37)%28)-14}deg)`;
+  }
+}
+function pusherUpdateHUD(){
+  const s=pusherState;if(!s)return;
+  const g=document.getElementById('pusher-gold'),w=document.getElementById('pusher-winnings'),m=document.getElementById('pusher-msg');
+  if(g)g.textContent=state.gold+'g';if(w)w.textContent=s.winnings+'g';if(m)m.textContent=s.message;
+}
+function pusherStartLoop(){
+  cancelAnimationFrame(pusherRAF);pusherLast=performance.now();
+  const loop=now=>{
+    if(!pusherState||!pusherState.running||!document.getElementById('pusher-stage'))return;
+    const dt=Math.min(34,now-pusherLast);pusherLast=now;
+    pusherPhysics(dt);pusherRenderFrame();pusherUpdateHUD();
+    pusherRAF=requestAnimationFrame(loop);
+  };
+  pusherRAF=requestAnimationFrame(loop);
+}
+function renderCoinPusherUI(){
+  const s=pusherState||pusherSeed();pusherState=s;
+  const div=document.createElement('div');div.className='overlay-panel pop-in';div.id='mg-overlay';div.dataset.mode='casino';
+  div.innerHTML=`
+    <div class="casino-screen-swap">
+      <button class="overlay-close" onclick="pusherClose()">×</button>
+      <div class="overlay-title">PENNY PUSHER</div>
+      <div class="pusher-wrap">
+        <div class="pusher-cabinet">
+          <div class="pusher-marquee">PETLING PENNY PUSHER</div><div class="pusher-lights"></div>
+          <div class="pusher-stage" id="pusher-stage">
+            <div class="pusher-back"></div>
+            <div class="pusher-shelf" id="pusher-shelf"></div>
+            <div class="pusher-lip"></div><div class="pusher-chute"></div>
+            <div class="pusher-dropper" id="pusher-dropper" style="left:${s.dropX}%"></div>
+            ${s.coins.filter(c=>c.state!=='won').map(c=>`<div class="pusher-coin ${c.type} ${c.state==='fall'?'falling':''}" data-id="${c.id}" style="left:calc(${c.x}% - 11px);top:calc(${c.y}% - 11px);transform:rotate(${((c.id*37)%28)-14}deg)">${c.type==='gold'?'5':c.type==='chip'?'10':c.type==='capsule'?'★':''}</div>`).join('')}
+          </div>
+          <div class="pusher-hud">
+            <div class="pusher-stat">YOUR GOLD<b id="pusher-gold">${state.gold}g</b></div>
+            <div class="pusher-stat">COST<b>1g / DROP</b></div>
+            <div class="pusher-stat">SESSION WIN<b id="pusher-winnings">${s.winnings}g</b></div>
+          </div>
+          <div class="pusher-controls">
+            <button class="pusher-btn" onclick="pusherMove(-1)">◀</button>
+            <button class="pusher-btn drop" onclick="pusherDrop()">DROP COIN</button>
+            <button class="pusher-btn" onclick="pusherMove(1)">▶</button>
+          </div>
+          <div class="pusher-message" id="pusher-msg">${s.message}</div>
+          <div class="pusher-legend">COIN 1g · GOLD 5g · CHIP 10g · ★ CAPSULE 25g</div>
+        </div>
+      </div>
+    </div>`;
+  return div;
+}
+window.startCoinPusher=startCoinPusher;
+window.pusherClose=pusherClose;
+window.pusherMove=pusherMove;
+window.pusherDrop=pusherDrop;
+
 
 /* ---- Horse Racing ---- */
 let horseRaceState = null;

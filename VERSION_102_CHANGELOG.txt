@@ -1,0 +1,10 @@
+PETLING FIX 102 — CRAPS
+
+- Added CRAPS as a new playable Casino game.
+- Three betting modes: Pass Line, Don't Pass and Field.
+- Pass/Don't Pass use proper come-out and point phases.
+- Field is a one-roll wager with 2 and 12 paying 2:1.
+- Supports Free Play plus 5g, 10g and 20g wagers, matching the existing Casino.
+- Uses the existing Gold economy and save system.
+- Includes animated dice, point indicator, roll history, concise rules and clean Casino navigation.
+- Closing Craps returns to the Casino rather than exposing the screen beneath.

@@ -1,0 +1,11 @@
+PETLING FIX 103 — PETLING PENNY PUSHER
+- Added a full retro mechanical Coin Pusher game to the Casino.
+- Costs 1 Gold per dropped coin.
+- Move the overhead chute left/right and choose exactly where to drop.
+- Continuous animated mechanical shelf physically compresses and advances the pile.
+- Lightweight custom pile physics includes collisions, crowding, side rails, edge pressure and payout cascades.
+- The board persists for the session rather than resetting after each drop.
+- Visible prizes: normal 1g coins, 5g Gold Coins, 10g Casino Chips and rare 25g Mystery Capsules.
+- Objects that cross the front payout lip visibly tumble into the collection chute and immediately credit Gold.
+- Retro arcade cabinet styling, marquee lights, metal shelf, payout chute, HUD and session winnings.
+- Designed without an external physics library to remain lightweight on mobile.
