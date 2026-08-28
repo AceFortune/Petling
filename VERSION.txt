@@ -39,3 +39,12 @@ FIX 89 — STARTER CRITTERS + PETLING GARDEN INTERACTIONS
 - Added flower/plant sniffing, decoration inspection, pond watching/drinking, critter watching/greeting and quiet resting behaviours.
 - Petling temperament and likes weight these behaviours so different Petlings use the same Garden differently.
 - No teleporting is used; the Petling physically travels to its interaction target.
+
+FIX 90 — GARDEN PLANT DISAPPEARANCE SAFETY
+- Investigated all direct Garden tap paths that can remove plants.
+- Terrain painting can no longer silently delete a plant when changing to incompatible terrain; occupied tiles must be explicitly cleared first.
+- CLEAR is now protected by a two-tap confirmation on the same object within 2.2 seconds.
+- After one successful removal, CLEAR automatically switches off so casual follow-up taps cannot continue deleting the Garden.
+- Switching tools cancels any pending clear confirmation.
+- Added a direct-tap mass-removal safety guard: if one tile action somehow causes more than one plant to disappear, the pre-tap tile state is automatically restored.
+- Normal watering, planting, decoration placement, plant growth and deliberate critter feeding remain unchanged.

@@ -12079,14 +12079,17 @@ function closeToolPalette(){
   if (pal){ pal.classList.remove('open'); pal.innerHTML = ''; }
 }
 function selectTool(kind, id){
+  gardenPendingClear=null;
   gardenTool = { kind, id };
   closeToolPalette();
   refreshGardenToolUi();
 }
 function selectWaterTool(){
+  gardenPendingClear=null;
   const gw=document.querySelector('.g-world'); if(gw){gw.classList.toggle('g-build-mode',true);gw.classList.toggle('g-view-mode',false);}
  gardenTool = { kind:'water' }; closeToolPalette(); refreshGardenToolUi(); }
 function selectRemoveTool(){
+  gardenPendingClear=null;
   const gw=document.querySelector('.g-world'); if(gw){gw.classList.toggle('g-build-mode',true);gw.classList.toggle('g-view-mode',false);}
  gardenTool = { kind:'remove' }; closeToolPalette(); refreshGardenToolUi(); }
 function refreshGardenToolUi(){
@@ -12165,6 +12168,47 @@ function showGardenPlantProgress(i){
   return true;
 }
 
+
+let gardenPendingClear=null;
+
+function gardenPlantCount(){
+  return garden.tiles.reduce((n,t)=>n+(t&&t.plant?1:0),0);
+}
+function gardenSafetySnapshot(){
+  return {
+    plantCount:gardenPlantCount(),
+    tiles:garden.tiles.map(t=>({
+      terrain:t.terrain,
+      variant:t.variant,
+      plant:t.plant ? {...t.plant} : null,
+      decor:t.decor
+    }))
+  };
+}
+function gardenApplySafetyGuard(snapshot){
+  if(!snapshot)return true;
+  const after=gardenPlantCount();
+  // A single direct tile tap should never be capable of removing multiple
+  // plants. If that ever happens because of a rendering/placement regression,
+  // restore the pre-tap tile state rather than allowing a garden wipe.
+  if(snapshot.plantCount-after>1){
+    garden.tiles=snapshot.tiles.map(t=>({
+      terrain:t.terrain,variant:t.variant,
+      plant:t.plant?{...t.plant}:null,decor:t.decor
+    }));
+    showToast('Garden safety stopped an unexpected mass removal.');
+    return false;
+  }
+  return true;
+}
+function cancelGardenTool(){
+  gardenTool=null;
+  gardenPendingClear=null;
+  const gw=document.querySelector('.g-world');
+  if(gw){gw.classList.remove('g-build-mode');gw.classList.add('g-view-mode');}
+  refreshGardenToolUi();
+}
+
 function gardenTileTap(i){
   let t = garden.tiles[i];
 
@@ -12187,19 +12231,22 @@ function gardenTileTap(i){
   }
 
   if (gardenTool.kind === 'terrain'){
-    // Do not allow terrain painting underneath a multi-tile object.
+    // Terrain painting must be non-destructive. It used to silently delete a
+    // plant when the new terrain was incompatible, which made an innocent tap
+    // capable of looking like plants had vanished.
     if(occupied && occupied.anchor!==i){
       showToast('Remove the large object before changing terrain underneath it.');
       return;
     }
+    if(t.plant || t.decor){
+      showToast('Clear this plant or decoration before changing its terrain.');
+      return;
+    }
     if (t.terrain !== gardenTool.id){
-      if (t.plant){
-        const def = gPlantDef(t.plant.id);
-        if (def && !def.terrain.includes(gardenTool.id)){ t.plant = null; }
-      }
+      const safety=gardenSafetySnapshot();
       t.terrain = gardenTool.id;
       t.variant = gardenTerrainVariant(t.terrain);
-      afterGardenChange(i);
+      afterGardenChange(i,safety);
     }
     return;
   }
@@ -12246,12 +12293,44 @@ function gardenTileTap(i){
   }
 
   if (gardenTool.kind === 'remove'){
-    if(!gardenRemoveFootprintAt(i)){showToast('Nothing to clear here.');return;}
-    afterGardenChange(i);
+    const occ=gardenOccupiedByLargeObject(i);
+    const anchor=occ?occ.anchor:i;
+    const target=garden.tiles[anchor];
+    if(!target || (!target.plant && !target.decor)){
+      gardenPendingClear=null;
+      showToast('Nothing to clear here.');
+      return;
+    }
+
+    const now=Date.now();
+    if(!gardenPendingClear || gardenPendingClear.anchor!==anchor || now-gardenPendingClear.at>2200){
+      gardenPendingClear={anchor,at:now};
+      const label=target.plant
+        ? ((gPlantDef(target.plant.id)&&gPlantDef(target.plant.id).name)||'plant')
+        : ((gDecorDef(target.decor)&&gDecorDef(target.decor).name)||'decoration');
+      showToast(`Tap ${label} again to clear it.`);
+      return;
+    }
+
+    const safety=gardenSafetySnapshot();
+    gardenPendingClear=null;
+    if(!gardenRemoveFootprintAt(anchor)){showToast('Nothing to clear here.');return;}
+    if(!gardenApplySafetyGuard(safety)){
+      afterGardenChange(anchor);
+      cancelGardenTool();
+      return;
+    }
+    afterGardenChange(anchor);
+    cancelGardenTool(); // CLEAR is deliberately one-shot after a successful removal.
     return;
   }
 }
-function afterGardenChange(i){
+function afterGardenChange(i,safetySnapshot=null){
+  if(safetySnapshot && !gardenApplySafetyGuard(safetySnapshot)){
+    updateGardenTilesDom();
+    saveGarden();
+    return;
+  }
   updateGardenTilesDom();
   const changed = gardenEvaluateCritters();
   saveGarden();
