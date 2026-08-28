@@ -1,0 +1,15 @@
+PETLING FIX 109 — QUEST DIRECTOR 4.0
+
+- Added truth-first procedural mysteries: the culprit, motive, event sequence and evidence chain are generated before the player investigates.
+- Added three procedural people-of-interest per quest with personality, goals, fears, trust, secrets, lies, knowledge and conversation memories.
+- NPCs can now conceal information, lie about alibis, reveal motives/fears as trust rises, and remember important interactions.
+- Added persistent evidence graph with clues that point to places and suspects.
+- Added player theories: “I think X did it” records a theory and reports currently supporting evidence without simply revealing the hidden answer.
+- Added formal accusations. Correct accusations require sufficient discovered proof to force a confession; false/unsupported accusations damage NPC trust.
+- Added internal adventure time. Actions consume fictional minutes and the UI shows time/day phase. This is entirely inside today's quest and does NOT allow quests to span calendar days.
+- Added persistent Petling quest condition: courage, confidence, tiredness, injuries and trust.
+- Petling-directed tracking, strength, agility and courage attempts now check capabilities and current quest condition.
+- Added additional rule-based environmental interactions for burning flammable obstructions, cutting ropes/vines and breaking physical barriers.
+- Added richer recap/evidence/time queries that do not consume adventure time.
+- Director 4 lazily upgrades an already-generated daily quest, preserving compatibility with existing saves.
+- The strict one-real-calendar-day quest rule remains unchanged: unfinished quests still expire when the date changes.

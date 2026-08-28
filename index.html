@@ -10200,8 +10200,183 @@ function questAdvance(text,obj){
   const q=getDailyQuest();q.scene++;q.turns++;q.text=text;if(obj)q.objective=obj;
   q.log.push({scene:q.scene,text:text.slice(0,260)});saveState();renderDailyQuest();
 }
+
+/* ================= FIX 109 — QUEST DIRECTOR 4.0 =================
+   Truth-first mysteries, evidence graph, NPC memories/motivations,
+   internal adventure time, Petling quest condition, deductions and
+   rule-based environmental simulation. Lazily upgrades existing daily
+   quests so today's already-generated adventure remains playable.
+================================================================== */
+const QD4_MOTIVES=['protect family','repay a debt','hide a forbidden ritual','recover stolen property','avoid disgrace','gain wealth','break an old curse','take revenge'];
+const QD4_PERSONALITIES=['guarded','honourable','greedy','cowardly','proud','kind','calculating','superstitious'];
+const QD4_ACTION_MINUTES={search:12,follow:20,ask:5,question:4,persuade:7,threaten:5,sneak:10,use:8,take:3,give:3,attack:15,pet:8,wait:15,leave:20,travel:25};
+function qd4Ensure(q=getDailyQuest()){
+  if(q.director4)return q.director4;
+  const r=questRng((q.seed^0x4D345452)>>>0);
+  const suspects=[
+    {name:q.giver,role:q.giverRole},
+    {name:qpick(r,['Aldric','Mirelle','Hobb','Seren','Wulfric','Iona']),role:qpick(r,['travelling sellsword','local miller','pilgrim','tomb scholar','hunter','hedge mage'])},
+    {name:qpick(r,['Garran','Elspeth','Rowan','Tilda','Oren','Vey']),role:qpick(r,['grave digger','merchant','woodcutter','fisher','watchman','herbalist'])}
+  ];
+  // Generate hidden truth before clues/dialogue.
+  const culprit=suspects[1+Math.floor(r()*2)];
+  const innocent=suspects.find(x=>x.name!==culprit.name&&x.name!==q.giver)||suspects[0];
+  const motive=qpick(r,QD4_MOTIVES);
+  const eventPlace=q.locs[1],hiddenPlace=q.locs[2];
+  const truth={
+    culprit:culprit.name,motive,eventPlace,hiddenPlace,
+    sequence:[
+      `${culprit.name} went to the ${eventPlace}.`,
+      `${culprit.name} concealed their involvement because they wanted to ${motive}.`,
+      `Evidence was moved towards the ${hiddenPlace}.`
+    ],
+    responsibleForMainTrouble: !['misunderstood','guardian'].includes(q.twist)
+  };
+  const npcs={};
+  suspects.forEach((n,i)=>{
+    npcs[n.name]={
+      name:n.name,role:n.role,personality:qpick(r,QD4_PERSONALITIES),
+      wants:i===suspects.indexOf(culprit)?motive:qpick(r,QD4_MOTIVES),
+      fears:qpick(r,['being blamed','the '+q.foe,'losing someone close','the old magic','public shame','the authorities']),
+      trust:n.name===q.giver?42:28,disposition:0,
+      knows:[i===suspects.indexOf(culprit)?`I was at the ${eventPlace}.`:`I saw signs near the ${eventPlace}.`],
+      secrets:i===suspects.indexOf(culprit)?[`I went to the ${eventPlace}.`,`I know why evidence leads to the ${hiddenPlace}.`]:[],
+      lies:i===suspects.indexOf(culprit)?[`I have never been to the ${eventPlace}.`]:[],
+      memories:[]
+    };
+  });
+  const evidence=[
+    {id:'e1',name:q.clues[0],at:q.locs[0],found:!!q.flags.clue1,fact:`It points toward the ${eventPlace}.`,implicates:null},
+    {id:'e2',name:q.clues[1],at:eventPlace,found:!!q.flags.clue2,fact:`It was handled by someone connected to the ${hiddenPlace}.`,implicates:culprit.name},
+    {id:'e3',name:`a marked scrap belonging to ${culprit.name}`,at:hiddenPlace,found:false,fact:`It places ${culprit.name} at the ${hiddenPlace}.`,implicates:culprit.name}
+  ];
+  q.director4={
+    truth,npcs,evidence,suspects:suspects.map(x=>x.name),
+    clock:9*60,deadline:21*60,dayPhase:'morning',
+    pet:{courage:55,tiredness:0,confidence:50,injuries:0,trust:60},
+    theories:[],contradictions:[],visited:[q.region],events:[],
+    rules:{fire:true,water:true,breakable:true,locks:true,ropes:true,darkness:true}
+  };
+  saveState();return q.director4;
+}
+function qd4TimeText(mins){const h=Math.floor(mins/60)%24,m=mins%60;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`}
+function qd4AdvanceTime(action){
+  const q=getDailyQuest(),d=qd4Ensure(q),mins=QD4_ACTION_MINUTES[action]||6;
+  d.clock=Math.min(d.deadline,d.clock+mins);
+  d.pet.tiredness=Math.min(100,d.pet.tiredness+Math.max(1,Math.floor(mins/12)));
+  d.dayPhase=d.clock<12*60?'morning':d.clock<17*60?'afternoon':d.clock<20*60?'evening':'night';
+  if(d.clock>=d.deadline) d.events.push('Night has fully fallen; dangerous approaches are harder now.');
+}
+function qd4Remember(npc,text){
+  const d=qd4Ensure(),n=d.npcs[npc];if(!n)return;
+  n.memories.push({scene:getDailyQuest().scene,text:String(text).slice(0,120)});
+  n.memories=n.memories.slice(-12);
+}
+function qd4FindNpc(raw){
+  const d=qd4Ensure(),s=String(raw||'').toLowerCase();
+  return Object.values(d.npcs).find(n=>s.includes(n.name.toLowerCase())) || d.npcs[getDailyQuest().giver];
+}
+function qd4EvidenceText(){
+  const d=qd4Ensure(),f=d.evidence.filter(e=>e.found);
+  return f.length?f.map(e=>`${e.name}: ${e.fact}`).join('\n'):'You have not established any firm evidence yet.';
+}
+function qd4SearchCurrent(){
+  const q=getDailyQuest(),d=qd4Ensure(q);
+  // reveal the earliest evidence compatible with progress
+  const candidate=d.evidence.find((e,i)=>!e.found && i<=Math.max(0,q.scene-1));
+  if(candidate){candidate.found=true;return `You uncover ${candidate.name}.\n\nEVIDENCE: ${candidate.fact}`;}
+  return `You search carefully, but find no new firm evidence here.`;
+}
+function qd4QuestionNpc(intent){
+  const q=getDailyQuest(),d=qd4Ensure(q),n=qd4FindNpc(intent.raw);
+  const raw=intent.raw||'', lower=raw.toLowerCase();
+  qd4Remember(n.name,`You asked: ${raw}`);
+  if(lower.includes('lying')||lower.includes('lie')||lower.includes('truth')){
+    if(n.secrets.length && n.trust<62){
+      n.disposition-=3;
+      return `${n.name}'s expression hardens. “I've told you what I know.”\n\n${state.name} watches ${n.name} closely.`;
+    }
+    return n.secrets.length?`${n.name} exhales. “Fine. I wasn't completely truthful. ${n.secrets[0]}”`:`${n.name} appears genuinely confused by the accusation.`;
+  }
+  if(lower.includes('where were')||lower.includes('alibi')){
+    if(n.name===d.truth.culprit && n.trust<65)return `${n.name} says, “Nowhere near the ${d.truth.eventPlace}, if that's what you're implying.”`;
+    return `${n.name} tells you: “${n.knows[0]}”`;
+  }
+  if(lower.includes('want')||lower.includes('motive')||lower.includes('why would')){
+    return n.trust>55?`${n.name} admits that what they really want is to ${n.wants}.`:`${n.name} shakes their head. “My reasons are my own.”`;
+  }
+  if(lower.includes('afraid')||lower.includes('fear'))return n.trust>48?`${n.name} quietly admits they fear ${n.fears}.`:`${n.name} refuses to discuss it.`;
+  if(lower.includes('remember')||lower.includes('said before')){
+    const last=n.memories.slice(0,-1).at(-1);return last?`${n.name} remembers your earlier exchange: “${last.text}”`:`You haven't had a substantial earlier exchange with ${n.name}.`;
+  }
+  return null;
+}
+function qd4Theory(raw){
+  const q=getDailyQuest(),d=qd4Ensure(q),s=raw.toLowerCase();
+  const suspect=d.suspects.find(n=>s.includes(n.toLowerCase()));
+  if(!suspect)return `You form a theory, but you haven't named a clear suspect. Known people of interest: ${d.suspects.join(', ')}.`;
+  const evidence=d.evidence.filter(e=>e.found&&e.implicates===suspect);
+  const correct=suspect===d.truth.culprit;
+  d.theories.push({suspect,scene:q.scene,evidence:evidence.map(x=>x.id)});
+  return `THEORY RECORDED: ${suspect} is responsible.\n\n${evidence.length?`Evidence currently supporting it: ${evidence.map(x=>x.name).join(', ')}.`:'You do not yet have direct evidence tying them to it.'}${correct&&evidence.length>=2?`\n\nThe pieces fit unusually well, but you may still want a confession or final proof.`:''}`;
+}
+function qd4Accuse(raw){
+  const q=getDailyQuest(),d=qd4Ensure(q),s=raw.toLowerCase();
+  const suspect=d.suspects.find(n=>s.includes(n.toLowerCase()));
+  if(!suspect)return `Who exactly are you accusing? Known people of interest: ${d.suspects.join(', ')}.`;
+  const proof=d.evidence.filter(e=>e.found&&e.implicates===suspect);
+  const n=d.npcs[suspect];
+  if(suspect!==d.truth.culprit){
+    if(n){n.trust-=18;n.disposition-=10;qd4Remember(suspect,'You falsely accused them.');}
+    return `${suspect} reacts with anger. Your accusation doesn't fit the evidence you currently possess.`;
+  }
+  if(proof.length<2){
+    if(n){n.trust-=8;qd4Remember(suspect,'You accused them without enough proof.');}
+    return `${suspect} goes pale, then recovers. “Prove it.”\n\nYou suspect you're right, but you don't yet have enough evidence to break their story.`;
+  }
+  if(n){n.trust=75;n.secrets=[];qd4Remember(suspect,'You confronted them with convincing evidence.');}
+  q.flags.director4Confession=true;
+  return `${suspect} looks from you to the evidence and finally stops pretending.\n\n“All right. I was at the ${d.truth.eventPlace}. I hid it because I wanted to ${d.truth.motive}.”\n\nCONFESSION OBTAINED.`;
+}
+function qd4PetAttempt(raw){
+  const q=getDailyQuest(),d=qd4Ensure(q),p=d.pet,s=raw.toLowerCase();
+  const stats=typeof questPetCapabilities==='function'?questPetCapabilities():null;
+  const strength=stats?.strength||50,senses=stats?.senses||50,agility=stats?.agility||50,courage=(stats?.courage||50)+(p.confidence-50)*.25-p.injuries*.25;
+  let need=35,ability=senses,task='investigate';
+  if(/push|move|break|smash|lift/.test(s)){ability=strength;need=55;task='move the obstacle'}
+  else if(/climb|jump|squeeze|crawl/.test(s)){ability=agility;need=50;task='reach the difficult spot'}
+  else if(/guard|protect|face|scout|danger/.test(s)){ability=courage;need=52;task='face the danger'}
+  if(p.tiredness>70)ability-=12;
+  if(ability>=need){p.confidence=Math.min(100,p.confidence+4);p.trust=Math.min(100,p.trust+2);return `${state.name} successfully ${task}s. Its confidence visibly grows.`}
+  p.confidence=Math.max(0,p.confidence-2);return `${state.name} tries to ${task}, but can't quite manage it. ${p.tiredness>70?'It also looks exhausted.':''}`;
+}
+function qd4Handle(intent){
+  const q=getDailyQuest(),d=qd4Ensure(q),raw=intent.raw||'',s=raw.toLowerCase();
+  // Meta commands never consume fictional time.
+  if(/\b(recap|summary|what happened|catch me up)\b/.test(s))return {stay:true,noTime:true,text:`ADVENTURE RECAP\n${q.objective}\n\nEVIDENCE\n${qd4EvidenceText()}\n\nTime: ${qd4TimeText(d.clock)} (${d.dayPhase}).`};
+  if(/\b(evidence|clues|proof)\b/.test(s)&&(/\b(show|list|have|found|what)\b/.test(s)))return {stay:true,noTime:true,text:qd4EvidenceText()};
+  if(/\b(time|what time|how late)\b/.test(s))return {stay:true,noTime:true,text:`It is ${qd4TimeText(d.clock)} in the adventure (${d.dayPhase}). The day's dangerous work should be resolved before ${qd4TimeText(d.deadline)}.`};
+  if(/\b(theory|i think|i suspect|my guess)\b/.test(s))return {stay:true,noTime:true,text:qd4Theory(raw)};
+  if(/\b(accuse|confront|you did it|responsible)\b/.test(s))return {stay:true,text:qd4Accuse(raw)};
+  if(intent.action==='question'){
+    const special=qd4QuestionNpc(intent);if(special)return {stay:true,text:special};
+  }
+  if(intent.action==='search'&&(/\b(clue|evidence|proof|room|area|ground|scene|around)\b/.test(s)))return {stay:true,text:qd4SearchCurrent()};
+  if(intent.action==='pet'&&/\b(sniff|track|search|push|move|break|climb|jump|squeeze|guard|protect|scout|fetch)\b/.test(s))return {stay:true,text:qd4PetAttempt(raw)};
+  // Environmental rule combinations.
+  if(/\b(burn|light|fire|torch)\b/.test(s)&&/\b(door|wood|rope|brush|vines|obstacle)\b/.test(s))return {stay:true,text:`You apply fire carefully. The flammable material catches and the obstruction begins to give way. The route is changed permanently by your choice.`};
+  if(/\b(cut|slice|sever)\b/.test(s)&&/\b(rope|vines|cord|brush)\b/.test(s))return {stay:true,text:`You cut through it. What was blocking or holding the route is no longer intact.`};
+  if(/\b(smash|break|kick|force)\b/.test(s)&&/\b(door|lock|crate|barrier|wall)\b/.test(s))return {stay:true,text:`You use brute force. It is noisy, but the breakable obstruction gives way.`};
+  return null;
+}
+
 function questSceneResponse(intent){
   const q=getDailyQuest(),s=q.scene,a=intent.action;
+  const d4=qd4Handle(intent);
+  if(d4){
+    if(!d4.noTime)qd4AdvanceTime(a);
+    return d4;
+  }
   questEnsureInterpreterState(q);questUpdateContext(intent);
   if(a==='meta')return {stay:true,text:questMetaAnswer(intent.topic)};
   const clarification=questClarify(intent);if(clarification)return clarification;
@@ -10274,6 +10449,9 @@ function questSubmit(){
   const q=getDailyQuest();if(q.complete)return;
   const intent=questInterpret(raw),res=questSceneResponse(intent);
   q.started=true;q.lastInput=raw;q.turns++;
+  // Director 4 actions handled above already consume time; normal legacy scene
+  // actions consume it here.
+  if(!res.noTime && !res.stay) qd4AdvanceTime(intent.action);
   if(res.stay){q.text=res.text;saveState();renderDailyQuest();return}
   if(res.battle){q.text=res.text;saveState();renderDailyQuest();setTimeout(()=>questStartBattle(!!res.final),450);return}
   if(res.complete){questComplete(res.text);return}
@@ -10325,7 +10503,7 @@ function renderDailyQuest(){
       <div class="quest-title">${q.title.toUpperCase()}</div>
       <div class="quest-subtitle">${q.regionDesc}</div>
       <div class="quest-progress">${[0,1,2,3,4,5,6].map(n=>`<span class="${n<prog?'done':n===prog?'here':''}"></span>`).join('')}</div>
-      <div class="quest-objective"><b>OBJECTIVE:</b> ${q.objective}</div>
+      <div class="quest-objective"><b>OBJECTIVE:</b> ${q.objective}<br><span style="opacity:.72">Adventure time: ${qd4TimeText(qd4Ensure(q).clock)} · ${qd4Ensure(q).dayPhase} · Evidence: ${qd4Ensure(q).evidence.filter(e=>e.found).length}/${qd4Ensure(q).evidence.length}</span></div>
       <div class="quest-story">${q.text}</div>
       ${q.complete?`
         <div class="quest-result"><b>QUEST COMPLETE</b><br><br>+${q.reward} gold · +${q.xp} xp<br><br>Another adventure arrives tomorrow.</div>
