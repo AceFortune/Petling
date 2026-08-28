@@ -13906,6 +13906,7 @@ function strikeNow(){
     if (!lakeState || lakeState.phase !== 'reeling') return;
     lakeState.progress = clamp(lakeState.progress - 3, 0, 100);
     lakeState.tension = clamp(lakeState.tension - 6, 0, 100);
+    if (lakeState.phase !== 'reeling') return;
     if (lakeState.progress <= 0){ resolveLakeCatch(false); return; }
     updateLakeBars();
   }, 260);
@@ -13914,8 +13915,14 @@ function reelTap(){
   if (!lakeState || lakeState.phase !== 'reeling') return;
   lakeState.progress = clamp(lakeState.progress + 9, 0, 100);
   lakeState.tension = clamp(lakeState.tension + 14, 0, 100);
-  if (lakeState.tension >= 100){ resolveLakeCatch(false); return; }
+
+  // Reaching the catch line is an immediate success. Previously tension was
+  // checked first, so a final REEL tap that completed both bars on the same
+  // frame could incorrectly report "It got away" even though the progress bar
+  // visibly reached the end. Completion now always takes priority.
   if (lakeState.progress >= 100){ resolveLakeCatch(true); return; }
+  if (lakeState.tension >= 100){ resolveLakeCatch(false); return; }
+
   updateLakeBars();
 }
 function updateLakeBars(){

@@ -48,3 +48,10 @@ FIX 90 — GARDEN PLANT DISAPPEARANCE SAFETY
 - Switching tools cancels any pending clear confirmation.
 - Added a direct-tap mass-removal safety guard: if one tile action somehow causes more than one plant to disappear, the pre-tap tile state is automatically restored.
 - Normal watering, planting, decoration placement, plant growth and deliberate critter feeding remain unchanged.
+
+FIX 91 — AQUARIUM LAKE FISHING FINISH-LINE PRIORITY
+- Fixed an edge case where the final REEL tap could fill the catch/progress bar and tension bar on the same frame.
+- The old code checked snapped-line tension before completed catch progress, causing a visible full progress bar to sometimes result in failure.
+- Reaching 100% catch progress now resolves immediately as a successful catch before tension failure is considered.
+- Normal tension failure still occurs whenever tension reaches its limit before the catch bar is completed.
+- Added an extra reeling-state guard to the passive fishing timer to prevent stale failure resolution.
