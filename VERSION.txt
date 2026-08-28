@@ -55,3 +55,52 @@ FIX 91 — AQUARIUM LAKE FISHING FINISH-LINE PRIORITY
 - Reaching 100% catch progress now resolves immediately as a successful catch before tension failure is considered.
 - Normal tension failure still occurs whenever tension reaches its limit before the catch bar is completed.
 - Added an extra reeling-state guard to the passive fishing timer to prevent stale failure resolution.
+
+FIX 92 — DEFINITIVE CRITTER V3 ROSTER
+- Replaced the previous generated 160-critter roster with the user's 182 named critter PNGs.
+- User rarity folders are authoritative: 29 Common, 48 Uncommon, 60 Rare, 32 Epic, 13 Legendary.
+- User habitat folders are authoritative: Meadow, Forest, Earth, Pond, Fire, Frost, Coastal, Swamp, Spirit, Arcane, Dark, Light.
+- Added a real three-stage ecology model: Appearance requirements drive evidence/sightings, Visit requirements govern actual daily visitor eligibility, Resident requirements govern permanent residency.
+- Assigned balanced Garden Level 1–10 gates without changing user rarity or habitat classifications.
+- Added three simple early terrain teachers: Petaling (grass), Pebblin (soil/dirt), Dripdrop (pond/water).
+- Every requirement references plants/decorations/terrain already present in the current Garden registry.
+- Added Epic to rarity weighting and discovery timing; removed obsolete Very Rare handling.
+- Embedded all 182 supplied transparent PNG assets directly into the project and mapped each species to its own artwork.
+- Added a one-time V3 critter-state migration so old generated species records cannot be incorrectly inherited by the new named roster; garden layout/plants/decorations are preserved.
+
+FIX 93 — GARDEN HARD DELETION SAFETY
+- Confirmed and fixed the reported critter-tap plant deletion bug.
+- Root cause: tapping a visiting critter called tryFeedCritter(), which silently found and deleted a matching grown plant anywhere in the Garden.
+- Tapping critters is now non-destructive and informational only.
+- Legacy critter feeding no longer consumes/removes placed plants.
+- Critter UI taps stop event propagation so they cannot fall through onto Garden tiles underneath.
+- Added a hard invariant to gardenRemoveFootprintAt(): it refuses to remove any plant or decoration unless the CLEAR/remove tool is actively selected.
+- Fix 90's two-tap confirmation remains in place, and CLEAR switches itself off after one successful removal.
+- Therefore, during normal gameplay, deliberate CLEAR selection + confirmation on the target asset is the only interactive route for deleting placed plants/decorations.
+
+FIX 94 — GARDEN PETAL ECONOMY + RENEWABLE HARVESTS
+- Reintroduced Petals as a Garden-only currency.
+- Existing saves receive 220 starting Petals once; new Gardens start with 220.
+- All landscaping/terrain remains completely free, including grass, soil/dirt and pond/water placement.
+- Plants/seeds and decorations now have balanced Petal prices based on unlock level, tags and physical footprint.
+- Prices are visible directly in the Garden palettes; unaffordable entries are visually dimmed and cannot be selected/placed.
+- Petals are spent only when placement succeeds, so invalid placement never charges the player.
+- Fully grown plants are permanent renewable producers: tapping a ready mature plant harvests/sells its logical bounty for Petals without removing the plant.
+- Fruit trees sell fruit; berry plants sell berries; vegetables/herbs sell crops; mushrooms sell caps; flowers sell blooms/cuttings.
+- Harvesting starts an asset-appropriate regrowth timer. The plant remains fully grown and can be harvested again when its bounty returns.
+- Ready mature plants display a small SELL indicator.
+- Critter first visits award Petals, repeat visits award a smaller amount, and becoming a resident awards a substantial rarity-scaled Petal reward.
+- Garden Level still controls unlocks; Petals control affordability; landscaping stays free so habitat experimentation cannot soft-lock the player.
+
+FIX 95 — CRITTER BREEDING, MULTIPLE SPECIES & TRADING
+- Resident species now track an owned population rather than being limited to one individual.
+- A suitable resident species can attract a second wild individual, creating a breeding pair.
+- Two adults of the same species are required before breeding is possible.
+- Every species gets a breeding-readiness requirement derived from and strengthened from its existing resident habitat requirements.
+- Once the pair and habitat requirement are satisfied, BREED becomes available.
+- Breeding produces a baby and starts a rarity-scaled maturation/cooldown timer.
+- Babies mature automatically over real time and become owned adults.
+- Mature offspring can be sold for Garden Petals; selling offspring does not affect plants/assets.
+- Adult resident critters can also be sold voluntarily for Petals with a confirmation prompt.
+- Critter sale values scale by rarity. Mature offspring sell for 80% of normal adult value.
+- Residents screen is now RESIDENTS & BREEDING and shows owned count, breeding requirement/readiness, baby timer, mature offspring and sale controls.
