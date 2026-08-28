@@ -12094,10 +12094,18 @@ function gardenWaterMask(i){
   return m;
 }
 function gardenWaterHasLilies(i){
-  // Stable sparse distribution: about 1 in 8 water positions use the original
-  // lily-pad texture. It depends only on the grid position, so lilies do not
-  // flicker/change simply because neighbouring water is edited.
-  return (((i * 37) + 11) % 8) === 0;
+  // Fix 101: spatial hash using BOTH X and Y.
+  // The old modulo used the linear tile index directly; because the Garden
+  // grid width and modulus interacted, lily tiles could line up in bands/rows.
+  // This deterministic 2D hash distributes them naturally across the whole
+  // garden while remaining stable after neighbouring water is edited.
+  const x=i%GARDEN_COLS;
+  const y=Math.floor(i/GARDEN_COLS);
+  let h=Math.imul(x+17,0x45d9f3b)^Math.imul(y+31,0x27d4eb2d);
+  h^=h>>>16;
+  h=Math.imul(h,0x45d9f3b);
+  h^=h>>>16;
+  return (h>>>0)%8===0; // roughly 12.5% of positions
 }
 function gardenWaterAutoSrc(i){
   const mask=String(gardenWaterMask(i)).padStart(3,'0');

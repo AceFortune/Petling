@@ -1,0 +1,9 @@
+PETLING FIX 101 — NATURAL LILY PAD DISTRIBUTION
+
+- Fixed lily-pad water variants clustering into a specific row/band.
+- Root cause: the previous deterministic modulo operated directly on the linear tile index, which could form visible grid patterns depending on the Garden column count.
+- Lily selection now uses a proper two-dimensional spatial hash based independently on tile X and Y coordinates.
+- Approximately 1 in 8 eligible water positions still contain lily pads.
+- Distribution is scattered naturally across the whole Garden rather than forming rows or columns.
+- Lily placement remains deterministic/stable: editing neighbouring water will not make existing pads randomly flicker around.
+- Fix 99 seamless/refraction water artwork and Fix 100 zero-flash loading behaviour are unchanged.
