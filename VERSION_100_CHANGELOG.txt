@@ -1,0 +1,9 @@
+PETLING FIX 100 — ZERO-FLASH WATER PLACEMENT
+
+- Dynamic water geometry and refraction artwork are unchanged from Fix 99.
+- Removed the final visible loading/fallback square completely.
+- Water terrain changes now preload every affected dynamic-water tile BEFORE the Garden DOM is updated.
+- A single water edit can alter the centre tile plus all eight neighbours, so the full affected 3×3 region is preloaded atomically.
+- While those images load, the previous fully-rendered Garden remains on screen.
+- Once all required water images are ready, the entire affected area updates together.
+- This prevents blank, cyan, transparent, or other temporary square flashes during pond construction.

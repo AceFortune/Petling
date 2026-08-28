@@ -12101,7 +12101,7 @@ function gardenWaterHasLilies(i){
 }
 function gardenWaterAutoSrc(i){
   const mask=String(gardenWaterMask(i)).padStart(3,'0');
-  const folder=gardenWaterHasLilies(i)?'water_dynamic':'water_dynamic_clean';
+  const folder=gardenWaterHasLilies(i)?'water_dynamic':'water_dynamic_clean_v2';
   return `assets/garden/${folder}/water_dyn_${mask}.png`;
 }
 
@@ -12355,7 +12355,7 @@ function cancelGardenTool(){
   refreshGardenToolUi();
 }
 
-function gardenTileTap(i){
+async function gardenTileTap(i){
   let t = garden.tiles[i];
 
   // A quick tap on any growing seed/sprout shows its progress even when no
@@ -12391,8 +12391,23 @@ function gardenTileTap(i){
     }
     if (t.terrain !== gardenTool.id){
       const safety=gardenSafetySnapshot();
+      const oldTerrain=t.terrain;
       t.terrain = gardenTool.id;
       t.variant = gardenTerrainVariant(t.terrain);
+
+      // Fix 100: water changes are committed to the DOM ONLY after every
+      // affected dynamic-water image has finished loading. Changing one tile
+      // can change up to eight neighbouring autotile sprites, so preload the
+      // complete 3x3 affected area first. Until then the player continues to
+      // see the old, fully-rendered garden — never a blank/loading square.
+      const touchesWater =
+        oldTerrain==='terrain_water' ||
+        gardenTool.id==='terrain_water' ||
+        gardenWaterAffectedIndices(i).some(j=>garden.tiles[j]&&garden.tiles[j].terrain==='terrain_water');
+
+      if(touchesWater){
+        await gardenPreloadWaterImages(gardenWaterAffectedIndices(i));
+      }
       afterGardenChange(i,safety);
     }
     return;

@@ -1,0 +1,10 @@
+PETLING FIX 99 — WATER SEAM & REFRACTION RESTORE
+
+- Fix 97 dynamic water geometry is preserved exactly.
+- Restored the original refractive/starry water texture.
+- Rebuilt the lily-pad-free variants from the original Fix 97 source, changing ONLY the four lily-pad regions.
+- Verified every outer edge of all 256 clean variants is pixel-identical to the corresponding original Fix 97 tile.
+- This prevents seams between lily and non-lily water tiles.
+- Lily pads remain sparse (roughly 1 in 8 positions).
+- No flat cyan loading square is used.
+- Existing project assets and gameplay systems are preserved.
