@@ -12066,89 +12066,31 @@ function gardenGridHTML(){
   return html;
 }
 
-const GARDEN_WATER_AUTO_ASSETS=Object.freeze({
- single:'assets/garden/water_autotile/water_auto_01.png',middle:'assets/garden/water_autotile/water_auto_02.png',
- top:'assets/garden/water_autotile/water_auto_03.png',bottom:'assets/garden/water_autotile/water_auto_04.png',
- left:'assets/garden/water_autotile/water_auto_05.png',right:'assets/garden/water_autotile/water_auto_06.png',
- tl:'assets/garden/water_autotile/water_auto_07.png',tr:'assets/garden/water_autotile/water_auto_08.png',
- bl:'assets/garden/water_autotile/water_auto_09.png',br:'assets/garden/water_autotile/water_auto_10.png',
- innerTL:'assets/garden/water_autotile/water_auto_11.png',innerTR:'assets/garden/water_autotile/water_auto_12.png',
- innerBL:'assets/garden/water_autotile/water_auto_13.png',innerBR:'assets/garden/water_autotile/water_auto_14.png',
- tUp:'assets/garden/water_autotile/water_auto_15.png',tDown:'assets/garden/water_autotile/water_auto_16.png',
- tLeft:'assets/garden/water_autotile/water_auto_17.png',tRight:'assets/garden/water_autotile/water_auto_18.png',
- cross:'assets/garden/water_autotile/water_auto_19.png',horiz:'assets/garden/water_autotile/water_auto_20.png',
- vert:'assets/garden/water_autotile/water_auto_21.png',capL:'assets/garden/water_autotile/water_auto_22.png',
- capR:'assets/garden/water_autotile/water_auto_23.png',capT:'assets/garden/water_autotile/water_auto_24.png',
- capB:'assets/garden/water_autotile/water_auto_25.png',diagTLBR:'assets/garden/water_autotile/water_auto_26.png',
- diagTRBL:'assets/garden/water_autotile/water_auto_27.png',openUp:'assets/garden/water_autotile/water_auto_28.png',
- openDown:'assets/garden/water_autotile/water_auto_29.png',openLeft:'assets/garden/water_autotile/water_auto_30.png',
- openRight:'assets/garden/water_autotile/water_auto_31.png',pool:'assets/garden/water_autotile/water_auto_32.png',
- bayT:'assets/garden/water_autotile/water_auto_33.png',bayB:'assets/garden/water_autotile/water_auto_34.png',
- bayL:'assets/garden/water_autotile/water_auto_35.png',bayR:'assets/garden/water_autotile/water_auto_36.png'
-});
+/* FIX 97 — deterministic 8-neighbour dynamic water.
+   Every possible neighbour configuration has a purpose-built tile generated from
+   the same source textures. Shared N/E/S/W openings are pixel-identical, so
+   adjacent water can no longer choose incompatible banks/end-caps. */
 function gardenWaterNeighbour(i,dx,dy){
- const x=i%GARDEN_COLS,y=Math.floor(i/GARDEN_COLS),nx=x+dx,ny=y+dy;
- if(nx<0||ny<0||nx>=GARDEN_COLS||ny>=GARDEN_ROWS)return false;
- const t=garden.tiles[ny*GARDEN_COLS+nx]; return !!(t&&t.terrain==='terrain_water');
+  const x=i%GARDEN_COLS,y=Math.floor(i/GARDEN_COLS),nx=x+dx,ny=y+dy;
+  if(nx<0||ny<0||nx>=GARDEN_COLS||ny>=GARDEN_ROWS)return false;
+  const t=garden.tiles[ny*GARDEN_COLS+nx];
+  return !!(t&&t.terrain==='terrain_water');
 }
-function gardenWaterAutoKey(i){
-  const N=gardenWaterNeighbour(i,0,-1), E=gardenWaterNeighbour(i,1,0),
-        S=gardenWaterNeighbour(i,0,1), W=gardenWaterNeighbour(i,-1,0);
-  const NE=gardenWaterNeighbour(i,1,-1), SE=gardenWaterNeighbour(i,1,1),
-        SW=gardenWaterNeighbour(i,-1,1), NW=gardenWaterNeighbour(i,-1,-1);
-  const count=[N,E,S,W].filter(Boolean).length;
-
-  // Isolated pool.
-  if(count===0)return 'single';
-
-  // One connection: use a proper square end-cap.
-  if(count===1){
-    // End caps chosen from MEASURED edge coverage, not the asset's key names:
-    // several names in this set are mirrored/mislabelled relative to their art
-    // (capR draws water on its right, capT/capB are ~45% transparent). Picking
-    // by name produced holes and shorelines facing the wrong way, so each cap
-    // below is the tile whose art actually carries water to the joining edge.
-    if(E)return 'capL';    // water continues east: capL has water on its right edge
-    if(W)return 'horiz';   // no correctly-mirrored right-cap exists; open water is
-                           // cleaner than a backwards shoreline
-    if(S)return 'bayB';    // water continues south: bayB carries water to its bottom
-    return 'middle';       // water continues north: middle carries water to its top
-  }
-
-  // Two connections: straights or exterior corners.
-  if(count===2){
-    if(E&&W)return 'horiz';
-    if(N&&S)return 'vert';
-    if(E&&S)return 'tl';
-    if(S&&W)return 'tr';
-    if(W&&N)return 'br';
-    return 'bl'; // N + E
-  }
-
-  // Three-way branch.
-  if(count===3){
-    if(!N)return 'tDown';
-    if(!S)return 'tUp';
-    if(!W)return 'tRight';
-    return 'tLeft';
-  }
-
-  // Four cardinal neighbours = broad water. Only use concave-bank art when a
-  // single diagonal is missing; otherwise keep a clean open-water centre.
-  const missingDiag=[!NW,!NE,!SW,!SE].filter(Boolean).length;
-  if(missingDiag===0)return 'middle';
-  if(missingDiag===1){
-    if(!NW)return 'innerTL';
-    if(!NE)return 'innerTR';
-    if(!SW)return 'innerBL';
-    return 'innerBR';
-  }
-
-  // Multiple diagonal gaps are visually safer as open water than as arbitrary
-  // generated junction art. This prevents mismatched banks/black wedges.
-  return 'middle';
+function gardenWaterMask(i){
+  let m=0;
+  if(gardenWaterNeighbour(i,0,-1)) m|=1;    // N
+  if(gardenWaterNeighbour(i,1,0))  m|=2;    // E
+  if(gardenWaterNeighbour(i,0,1))  m|=4;    // S
+  if(gardenWaterNeighbour(i,-1,0)) m|=8;    // W
+  if(gardenWaterNeighbour(i,1,-1)) m|=16;   // NE
+  if(gardenWaterNeighbour(i,1,1))  m|=32;   // SE
+  if(gardenWaterNeighbour(i,-1,1)) m|=64;   // SW
+  if(gardenWaterNeighbour(i,-1,-1))m|=128;  // NW
+  return m;
 }
-function gardenWaterAutoSrc(i){return GARDEN_WATER_AUTO_ASSETS[gardenWaterAutoKey(i)]||GARDEN_WATER_AUTO_ASSETS.middle;}
+function gardenWaterAutoSrc(i){
+  return `assets/garden/water_dynamic/water_dyn_${String(gardenWaterMask(i)).padStart(3,'0')}.png`;
+}
 
 function tileArtUrl(t,i){
   if(t&&t.terrain==='terrain_water'&&Number.isFinite(i))return gardenWaterAutoSrc(i);

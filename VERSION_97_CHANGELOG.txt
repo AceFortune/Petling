@@ -1,0 +1,10 @@
+PETLING FIX 97 — DYNAMIC WATER REBUILD
+
+- Replaced the fragile hand-mapped 36-sprite water lookup.
+- Added deterministic 8-neighbour water autotiling.
+- Generated all 256 possible neighbour configurations.
+- Every cardinal connection uses an identical edge opening, preventing mismatched seams.
+- Diagonal neighbours now control corner filling, so 2x2+ ponds become broad continuous water.
+- Fully surrounded tiles become uninterrupted open water.
+- Isolated water remains a self-contained pond.
+- Existing garden, critter, plant, decoration and other game assets are preserved.
