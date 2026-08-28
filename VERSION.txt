@@ -104,3 +104,13 @@ FIX 95 — CRITTER BREEDING, MULTIPLE SPECIES & TRADING
 - Adult resident critters can also be sold voluntarily for Petals with a confirmation prompt.
 - Critter sale values scale by rarity. Mature offspring sell for 80% of normal adult value.
 - Residents screen is now RESIDENTS & BREEDING and shows owned count, breeding requirement/readiness, baby timer, mature offspring and sale controls.
+
+FIX 96 — CRITTER REQUIREMENT LEVEL CONSISTENCY
+- Audited all 182 Critter V3 appearance, visit and resident requirements against the actual Garden Level unlock table.
+- Found and corrected 228 requirement references that could ask for a terrain, plant, decoration or functional tag before it was available.
+- Requirements now obey a hard balancing rule: every requirement needed by a critter is achievable at or before that critter's own minimum Garden Level.
+- Early critters remain genuinely early-game rather than secretly depending on late-game assets.
+- Dripdrop's Level 1 residency no longer requires the late-game Crystal Birdbath; it now uses a Level 1 Pond-compatible decoration.
+- Replacements preserve each critter's habitat theme as closely as possible using assets already available at that level.
+- Added a runtime requirement-unlock audit that warns developers if a future critter edit reintroduces an impossible level dependency.
+- No critter names, rarity assignments, habitat assignments or artwork were changed.
