@@ -9887,76 +9887,158 @@ function dailyQuestMenuStatus(){
   if(q.complete)return 'today’s adventure complete';
   return q.started?'continue today’s adventure':'today’s adventure awaits';
 }
-function questInterpret(raw){
-  const s=(raw||'').trim().toLowerCase();
-  const has=(...xs)=>xs.some(x=>s.includes(x));
-  const words=s.replace(/[^\w'’ -]/g,' ').split(/\s+/).filter(Boolean);
-
-  // Question/topic parsing comes BEFORE generic verb parsing. This prevents
-  // "what is the item we need?" being mistaken for a generic TALK action.
-  let question=null,topic=null;
-  if(has('what','which','who','where','why','how','tell me','remind me','do we need','need to get','looking for','searching for')){
-    question=has('where','location','find it','find the')?'where':
-             has('who','whose')?'who':
-             has('why')?'why':
-             has('how')?'how':'what';
+function questEnsureInterpreterState(q){
+  if(!q.context)q.context={lastTopic:null,lastTarget:null,lastLocation:q.locs[0],lastSpeaker:q.giver,lastObject:null,pendingClarification:null};
+  if(!q.inventory)q.inventory=[];
+  if(!q.discoveredLocations)q.discoveredLocations=[q.region,q.locs[0]];
+  if(!q.peopleMet)q.peopleMet=[q.giver];
+  return q.context;
+}
+function questNorm(s){return String(s||'').toLowerCase().replace(/[’]/g,"'").replace(/[^a-z0-9' -]/g,' ').replace(/\s+/g,' ').trim()}
+function questHas(s,...xs){return xs.some(x=>s.includes(x))}
+function questFindMention(s,candidates){
+  let best=null;
+  for(const x of candidates.filter(Boolean)){
+    const n=questNorm(x);if(n&&s.includes(n)&&(best===null||n.length>questNorm(best).length))best=x;
   }
-  if(has('item','object','thing','relic','artifact','artefact','treasure','need to get','need to find','looking for','retrieve','recover'))topic='quest_item';
-  else if(has('quest','job','mission','task','objective','supposed to do','need to do','what do we do'))topic='objective';
-  else if(has('person','missing','victim','who are we','who is','looking for him','looking for her','looking for them'))topic='person';
-  else if(has('monster','creature','beast','enemy','foe','thing attacking','danger'))topic='foe';
-  else if(has('place','location','where','area','region','road','ruin','chapel','crypt','forest','swamp'))topic='location';
-  else if(has('clue','evidence','tracks','footprints','found','discovered'))topic='clue';
+  return best;
+}
+function questInterpret(raw){
+  const q=getDailyQuest(),ctx=questEnsureInterpreterState(q),s=questNorm(raw),has=(...xs)=>questHas(s,...xs);
+  const words=s.split(/\s+/).filter(Boolean),pet=questNorm(state.name||'petling');
+  const explicitNPC=questFindMention(s,[q.giver]);
+  const explicitLoc=questFindMention(s,[q.region,...q.locs]);
+  const explicitObj=questFindMention(s,[q.relic,...q.clues]);
+  const pronounTarget=has(' him',' her',' them',' that man',' that woman',' the quest dude',' quest dude')?ctx.lastSpeaker:null;
+  const pronounObject=has(' it',' that item',' that thing',' the item',' the object',' the relic')?ctx.lastObject:null;
+  let actor=(has(pet,'petling','my pet','my creature')||has('tell '+pet,'ask '+pet,'send '+pet,'have '+pet))?'pet':'player';
+  let tone=has('please','politely','kindly','gently','nicely','respectfully')?'polite':has('threat','angr','furious','aggressive','forcefully','shout','yell')?'aggressive':has('lie','pretend','deceive','bluff','trick')?'deceptive':has('joke','funny','sarcas','tease')?'playful':has('comfort','sympath','reassure','sorry','apolog')?'sympathetic':'neutral';
+  let question=null;
+  if(/^(what|which|who|where|why|how|when|is|are|did|does|do|can|could|would|will|have|has)\b/.test(s)||has('tell me','remind me','do we need','need to get','looking for','supposed to')){
+    question=has('where','location','which way','how do i get')?'where':has('who','whose')?'who':has('why')?'why':has('when')?'when':has('how')?'how':has('is ','are ','did ','does ','can ','could ','have ','has ')?'yesno':'what';
+  }
+  let topic=null;
+  if(has('item','object','thing we need','relic','artifact','artefact','treasure','need to get','need to find','looking for','retrieve','recover')||explicitObj===q.relic)topic='quest_item';
+  else if(has('quest','job','mission','task','objective','supposed to do','need to do','what do we do','what now','next'))topic='objective';
+  else if(has('person','missing','victim','looking for him','looking for her','looking for them'))topic='person';
+  else if(has('monster','creature','beast','enemy','foe','danger','attacking'))topic='foe';
+  else if(has('place','location','where','area','region','road','ruin','chapel','crypt','forest','swamp')||explicitLoc)topic='location';
+  else if(has('clue','evidence','tracks','footprints','found','discovered','know so far'))topic='clue';
   else if(has('reward','pay','payment','gold','xp','get for this'))topic='reward';
-  else if(has('you','your','yourself','name','who are you'))topic='giver';
+  else if(has('who are you','your name','about yourself','quest giver'))topic='giver';
+  else if(has('recap','summary','what happened','what have we done','story so far','remind me what'))topic='recap';
+  else if(has('inventory','carrying','what do i have','items do i have'))topic='inventory';
+  else if(has('people','who have we met','characters'))topic='people';
+  else if(has('places','where have we been','locations discovered'))topic='places';
+  else if(has('help','what can i say','commands','understand'))topic='help';
+  else if(question&&ctx.lastTopic&&has('it','that','them','there','he','she'))topic=ctx.lastTopic;
 
   let action='unknown';
-  if(question&&topic)action='question';
-  else if(has('attack','fight','kill','strike','hit','battle'))action='attack';
-  else if(has('petling','my pet','tell '+String(state.name||'').toLowerCase(),'send '+String(state.name||'').toLowerCase()))action='pet';
-  else if(has('search','look','inspect','investigate','examine','check','find','track','sniff'))action='search';
-  else if(has('ask','talk','speak','question','say','tell','conversation'))action='ask';
-  else if(has('persuade','convince','reason','calm','reassure','befriend'))action='persuade';
-  else if(has('threaten','intimidate','scare','warn'))action='threaten';
-  else if(has('follow','trail','tracks','footprints'))action='follow';
-  else if(has('sneak','hide','quiet','stealth'))action='sneak';
-  else if(has('give','offer','hand'))action='give';
-  else if(has('take','pick up','grab','collect','retrieve','recover'))action='take';
-  else if(has('use','open','light','break','touch','read','unlock'))action='use';
-  else if(has('wait','listen','watch'))action='wait';
-  else if(has('leave','run','retreat','go back','return'))action='leave';
+  if(topic==='help')action='meta';
+  else if(['recap','inventory','people','places'].includes(topic))action='meta';
   else if(question)action='question';
+  else if(has('accuse','blame','i think he','i think she','i think they','responsible','did it','stole it','killed'))action='accuse';
+  else if(has('i think','my theory','deduce','conclude','must be','means that'))action='deduce';
+  else if(has('attack','fight','kill','strike','hit','battle','charge'))action='attack';
+  else if(has('search','look around','inspect','investigate','examine','check','find','sniff','study'))action='search';
+  else if(has('ask','talk','speak','question','say','tell','conversation','chat'))action='ask';
+  else if(has('persuade','convince','reason','calm','reassure','befriend','appeal'))action='persuade';
+  else if(has('threaten','intimidate','scare','warn'))action='threaten';
+  else if(has('bribe','pay him','pay her','offer gold'))action='bribe';
+  else if(has('lie','deceive','bluff','pretend'))action='lie';
+  else if(has('apolog','say sorry'))action='apologise';
+  else if(has('comfort','console'))action='comfort';
+  else if(has('follow','trail','track','footprints'))action='follow';
+  else if(has('sneak','hide','quietly','stealth','creep'))action='sneak';
+  else if(has('give','offer','hand','show'))action=has('show')?'show':'give';
+  else if(has('take','pick up','grab','collect','retrieve','recover'))action='take';
+  else if(has('drop','put down','discard'))action='drop';
+  else if(has('use','open','light','break','touch','read','unlock','push','pull','burn','cut','dig','climb','swim','jump','knock','throw'))action='use';
+  else if(has('go to','head to','travel','walk to','return to','go back to','leave for'))action='travel';
+  else if(has('wait','listen','watch','smell'))action='wait';
+  else if(has('leave','run','retreat','go back'))action='leave';
+  else if(actor==='pet')action='pet';
 
-  return {action,question,topic,raw:s,words,kind:has('politely','kindly','gentle','please')?'gentle':has('angry','force','rough')?'forceful':'normal'};
+  let target=explicitNPC||explicitLoc||explicitObj||pronounTarget||pronounObject||null;
+  let method=has('quietly','silently')?'quietly':has('carefully','slowly')?'carefully':has('quickly','fast')?'quickly':null;
+  let secondary=null;
+  const whilePos=s.indexOf(' while '),thenPos=s.indexOf(' then ');
+  if(whilePos>0||thenPos>0){
+    const cut=whilePos>0?whilePos:thenPos,part=s.slice(cut+(whilePos>0?7:6));
+    if(part&&part!==s){const sec=questInterpretSimple(part);secondary=sec;}
+  }
+  return {action,actor,target,topic,question,tone,method,secondary,raw:s,words};
+}
+function questInterpretSimple(s){
+  s=questNorm(s);const has=(...xs)=>questHas(s,...xs);
+  return {action:has('sneak','hide')?'sneak':has('search','inspect','look')?'search':has('attack','fight')?'attack':has('follow','track')?'follow':has('talk','ask','speak')?'ask':has('use','open','break')?'use':'unknown',raw:s};
+}
+function questUpdateContext(intent){
+  const q=getDailyQuest(),ctx=questEnsureInterpreterState(q);
+  if(intent.topic)ctx.lastTopic=intent.topic;
+  if(intent.target){ctx.lastTarget=intent.target;if(intent.target===q.giver)ctx.lastSpeaker=q.giver;if(intent.target===q.relic||q.clues.includes(intent.target))ctx.lastObject=intent.target;if(q.locs.includes(intent.target))ctx.lastLocation=intent.target;}
+}
+function questMetaAnswer(topic){
+  const q=getDailyQuest();questEnsureInterpreterState(q);
+  if(topic==='help')return `You can speak naturally. Ask questions, investigate, travel, take/show/use objects, accuse or persuade people, give ${state.name} specific commands, or try environmental actions such as climb, break, burn, dig, listen and sneak. You can also type RECAP, OBJECTIVE, INVENTORY, PEOPLE or LOCATIONS.`;
+  if(topic==='inventory')return q.inventory.length?`Quest inventory: ${q.inventory.join(', ')}.`:`Your temporary quest inventory is empty.`;
+  if(topic==='people')return `People encountered: ${q.peopleMet.join(', ')}.`;
+  if(topic==='places')return `Discovered locations: ${q.discoveredLocations.join(', ')}.`;
+  if(topic==='recap'){
+    const found=[];if(q.flags.clue1)found.push(q.clues[0]);if(q.flags.clue2)found.push(q.clues[1]);
+    return `${q.title}: ${q.objective}${found.length?`\n\nClues: ${found.join('; ')}.`:''}${q.battles?`\n\nYou have fought ${q.battles} quest battle${q.battles===1?'':'s'} so far.`:''}`;
+  }
+  return q.objective;
 }
 function questAnswerQuestion(intent){
-  const q=getDailyQuest(),topic=intent.topic,where=intent.question==='where';
-  const knownRelic=q.archetype==='relic'||q.scene>=2;
+  const q=getDailyQuest(),ctx=questEnsureInterpreterState(q),topic=intent.topic,where=intent.question==='where';
+  if(topic==='recap'||topic==='inventory'||topic==='people'||topic==='places'||topic==='help')return questMetaAnswer(topic);
   if(topic==='quest_item'){
-    if(q.archetype==='relic')
-      return `“The item we're after is the ${q.relic},” ${q.giver} says. “${q.scene<2?`Start at the ${q.locs[0]}. That's where the trail begins.`:`The evidence points deeper into ${q.region}, towards the ${q.locs[Math.min(2,Math.max(1,q.scene-1))]}.`}”`;
-    if(q.archetype==='tomb')
-      return `There isn't a specific item you've been sent to retrieve. The job is to investigate the newly opened tomb and discover what is happening there.`;
-    if(q.archetype==='missing'||q.archetype==='rescue')
-      return `You're not looking for an object — you're trying to find the missing ${q.missing}. ${q.scene<2?`The first lead is the ${q.locs[0]}.`:`Your current trail leads towards the ${q.locs[Math.min(2,q.scene-1)]}.`}`;
+    ctx.lastObject=q.relic;
+    if(q.archetype==='relic')return `“The item we're after is the ${q.relic},” ${q.giver} says. “${q.scene<2?`Start at the ${q.locs[0]}. That's where the trail begins.`:`The evidence points deeper into ${q.region}, towards the ${q.locs[Math.min(2,Math.max(1,q.scene-1))]}.`}”`;
+    if(q.archetype==='tomb')return `There isn't a specific item you've been sent to retrieve. The job is to investigate the newly opened tomb and discover what is happening there.`;
+    if(q.archetype==='missing'||q.archetype==='rescue')return `You're not looking for an object — you're trying to find the missing ${q.missing}. ${q.scene<2?`The first lead is the ${q.locs[0]}.`:`Your current trail leads towards the ${q.locs[Math.min(2,q.scene-1)]}.`}`;
     return `There isn't a particular object you need to collect for this quest. Your current objective is: ${q.objective}`;
   }
   if(topic==='objective')return `Your current objective is: ${q.objective}`;
-  if(topic==='person')return (q.archetype==='missing'||q.archetype==='rescue')
-    ?`The person at the centre of the quest is a missing ${q.missing}. ${q.scene<2?`They were last connected to the ${q.locs[0]}.`:`You've already followed their trail deeper into ${q.region}.`}`
-    :`Nobody specific has been reported missing in this adventure. ${q.objective}`;
-  if(topic==='foe')return q.scene<3
-    ?`You don't yet know exactly what you're dealing with. The locals have rumours, but you haven't found enough evidence to identify the threat safely.`
-    :`The immediate threat you've uncovered is a ${q.foe}. Whether it is truly responsible for everything is another question.`;
-  if(topic==='location')return `You're in ${q.region}. ${q.regionDesc.charAt(0).toUpperCase()+q.regionDesc.slice(1)}. Your current lead points to the ${q.locs[Math.min(2,Math.max(0,q.scene-1))]}.`;
-  if(topic==='clue'){
-    const found=[];if(q.flags.clue1)found.push(q.clues[0]);if(q.flags.clue2)found.push(q.clues[1]);
-    return found.length?`So far you've found ${found.join(' and ')}.`:`You haven't uncovered a solid clue yet. Searching the area — or asking ${state.name} to investigate — would be sensible.`;
-  }
+  if(topic==='person')return (q.archetype==='missing'||q.archetype==='rescue')?`The person at the centre of the quest is a missing ${q.missing}. ${q.scene<2?`They were last connected to the ${q.locs[0]}.`:`You've followed their trail deeper into ${q.region}.`}`:`Nobody specific has been reported missing. ${q.objective}`;
+  if(topic==='foe')return q.scene<3?`You don't yet know exactly what you're dealing with. The locals have rumours, but you haven't found enough evidence to identify the threat safely.`:`The immediate threat you've uncovered is a ${q.foe}. Whether it is truly responsible for everything is another question.`;
+  if(topic==='location'){const loc=q.locs[Math.min(2,Math.max(0,q.scene-1))];ctx.lastLocation=loc;return `You're in ${q.region}. ${q.regionDesc.charAt(0).toUpperCase()+q.regionDesc.slice(1)}. Your current lead points to the ${loc}.`;}
+  if(topic==='clue'){const found=[];if(q.flags.clue1)found.push(q.clues[0]);if(q.flags.clue2)found.push(q.clues[1]);return found.length?`So far you've found ${found.join(' and ')}.`:`You haven't uncovered a solid clue yet. Searching the area — or asking ${state.name} to investigate — would be sensible.`;}
   if(topic==='reward')return `${q.giver} has promised payment if you see the adventure through. The completion reward is ${q.reward} gold and ${q.xp} XP.`;
   if(topic==='giver')return `${q.giver} is ${q.giverRole}, and the person who brought this trouble to your attention.`;
-  if(where)return `Your current lead is the ${q.locs[Math.min(2,Math.max(0,q.scene-1))]} in ${q.region}.`;
-  return `You can ask about the objective, the item or person you're looking for, the location, clues you've found, the threat, or the promised reward.`;
+  if(where)return `Your current lead is the ${ctx.lastLocation||q.locs[0]} in ${q.region}.`;
+  if(intent.question==='yesno')return `From what you currently know, there isn't enough evidence to answer that with certainty. You may need to question someone more specifically or investigate further.`;
+  return `I understand that as a question, but I need a clearer subject. Ask about the objective, item, person, place, clues, threat, reward, or what has happened so far.`;
+}
+function questFlexibleResponse(intent){
+  const q=getDailyQuest(),a=intent.action,target=intent.target||'the area';
+  if(a==='meta')return {stay:true,text:questMetaAnswer(intent.topic)};
+  if(a==='travel'){
+    const loc=questFindMention(intent.raw,q.discoveredLocations||[]);
+    if(!loc)return {stay:true,text:`You haven't named a place you know how to reach. Known locations: ${(q.discoveredLocations||[]).join(', ')}.`};
+    q.context.lastLocation=loc;return {stay:true,text:`You make your way towards ${loc}. It doesn't change your main lead yet, but you can investigate or ask questions here.`};
+  }
+  if(a==='take'){
+    const obj=questFindMention(intent.raw,q.clues)||questFindMention(intent.raw,[q.relic]);
+    if(!obj)return {stay:true,text:`You don't see an obvious quest object matching that description here.`};
+    if(!q.inventory.includes(obj))q.inventory.push(obj);q.context.lastObject=obj;return {stay:true,text:`You take ${obj}. It has been added to your temporary quest inventory.`};
+  }
+  if(a==='drop'){
+    const obj=questFindMention(intent.raw,q.inventory);if(!obj)return {stay:true,text:`You aren't carrying that.`};
+    q.inventory=q.inventory.filter(x=>x!==obj);return {stay:true,text:`You put down ${obj}.`};
+  }
+  if(a==='show'||a==='give'){
+    const obj=questFindMention(intent.raw,q.inventory)||q.context.lastObject;
+    if(!obj)return {stay:true,text:`You need to specify something you're carrying to ${a}.`};
+    return {stay:true,text:`You ${a} ${obj} to ${q.giver}. ${q.giver} studies it carefully. “That may matter. Keep hold of it for now.”`};
+  }
+  if(a==='accuse')return {stay:true,text:q.flags.clue2?`You voice your accusation. ${q.giver}'s expression changes. “That's a serious claim. If you're right, the evidence at the ${q.locs[2]} should prove it.”`:`You make the accusation, but you don't yet have enough evidence to make it stick. ${state.name} watches the reaction closely.`};
+  if(a==='deduce')return {stay:true,text:q.flags.clue2?`You lay out your theory using the evidence you've gathered. It fits disturbingly well. ${state.name} seems to sense that you're close to the truth.`:`It's possible, but right now it's still only a theory. More evidence would help.`};
+  if(['bribe','lie','apologise','comfort'].includes(a))return {stay:true,text:`You try a ${a==='bribe'?'transactional':a==='lie'?'deceptive':a==='apologise'?'contrite':'gentler'} approach. ${q.giver} reacts, but the central facts of the quest remain unchanged. A more specific question may reveal something useful.`};
+  if(intent.actor==='pet'&&['search','follow','sneak','use','pet'].includes(a))return {stay:true,text:`${questPetLine(a==='search'||a==='follow'?'search':'social')} You can be more specific about what you want ${state.name} to investigate, track, distract, guard, fetch, or approach.`};
+  if(a==='use')return {stay:true,text:`You try to ${intent.raw}. The environment reacts only where that action makes sense; nothing here gives way immediately. Try naming the exact object or obstacle you want to affect.`};
+  return null;
 }
 
 function questPetLine(kind){
@@ -9974,12 +10056,16 @@ function questAdvance(text,obj){
 }
 function questSceneResponse(intent){
   const q=getDailyQuest(),s=q.scene,a=intent.action;
+  questEnsureInterpreterState(q);questUpdateContext(intent);
+  if(a==='meta')return {stay:true,text:questMetaAnswer(intent.topic)};
 
   // Informational questions do not advance the plot. They answer from the
   // generated quest's actual stored facts and from what the player has learned.
   if(a==='question'){
     return {stay:true,text:questAnswerQuestion(intent)};
   }
+
+  const flexible=questFlexibleResponse(intent);if(flexible)return flexible;
 
   if(a==='unknown')return {stay:true,text:`You consider doing that, but aren't quite sure how to approach it here.\n\nTry describing a clear action or question. You can ask what you're looking for, where to go, who is missing, what clues you've found, what the current objective is, or what the reward is. You can also search, follow something, tell ${state.name} what to do, sneak, use something, persuade, threaten, or attack.`};
 
@@ -10043,7 +10129,7 @@ function questSubmit(){
   if(res.stay){q.text=res.text;saveState();renderDailyQuest();return}
   if(res.battle){q.text=res.text;saveState();renderDailyQuest();setTimeout(()=>questStartBattle(!!res.final),450);return}
   if(res.complete){questComplete(res.text);return}
-  q.scene++;q.text=res.text;if(res.obj)q.objective=res.obj;q.log.push({scene:q.scene,input:raw});saveState();renderDailyQuest();
+  q.scene++;q.text=res.text;if(res.obj)q.objective=res.obj;questEnsureInterpreterState(q);const newly=q.locs[Math.min(2,Math.max(0,q.scene-1))];if(newly&&!q.discoveredLocations.includes(newly))q.discoveredLocations.push(newly);q.context.lastLocation=newly||q.context.lastLocation;q.log.push({scene:q.scene,input:raw,intent:{action:intent.action,actor:intent.actor,target:intent.target,topic:intent.topic}});saveState();renderDailyQuest();
 }
 function questStartBattle(finalBattle=false){
   const q=getDailyQuest();q.battles++;q.flags.pendingBattle={final:finalBattle};saveState();
@@ -10096,7 +10182,7 @@ function renderDailyQuest(){
         <div class="quest-result"><b>QUEST COMPLETE</b><br><br>+${q.reward} gold · +${q.xp} xp<br><br>Another adventure arrives tomorrow.</div>
         <button class="mg-action-btn" onclick="openQuestJournal()">ADVENTURE JOURNAL</button>`:`
         <div class="quest-input-row"><input id="quest-input" class="quest-input" maxlength="180" autocomplete="off" placeholder="What do you do?" onkeydown="if(event.key==='Enter')questSubmit()"><button class="quest-send" onclick="questSubmit()">DO IT</button></div>
-        <div class="quest-hints">Write naturally. Try: “ask about the ruins”, “search the ground”, “tell ${state.name} to sniff the tracks”, “sneak closer”, “persuade them”, or “attack”.</div>
+        <div class="quest-hints">Write naturally. Ask follow-up questions, refer to “him” or “it”, give ${state.name} specific commands, travel, investigate, take/show/use objects, accuse people, make deductions, or type RECAP / INVENTORY / PEOPLE / LOCATIONS / HELP.</div>
         <div class="quest-actions"><button class="quest-chip" onclick="questQuick('search the area')">SEARCH</button><button class="quest-chip" onclick="questQuick('tell ${state.name} to investigate')">ASK ${state.name.toUpperCase()}</button><button class="quest-chip" onclick="questQuick('talk to them')">TALK</button></div>`}
     </div></div>`;
   const old=document.getElementById('mg-overlay');if(old)old.replaceWith(div);else openOverlay(div);

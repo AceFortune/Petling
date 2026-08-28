@@ -1,1 +1,1 @@
-Petling Fix 106 — Smarter Daily Quest Parser
+Petling Fix 107 — Quest Interpreter 2.0

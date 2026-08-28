@@ -1,0 +1,14 @@
+PETLING FIX 107 — QUEST INTERPRETER 2.0
+- Rebuilt the daily quest parser around structured intent: actor, action, target, topic, question type, tone and method.
+- Added conversational context and follow-up reference handling for him/her/them/it/that/there.
+- Added broader questions and meta commands: RECAP, INVENTORY, PEOPLE, LOCATIONS and HELP.
+- Added navigation between discovered quest locations.
+- Added temporary quest inventory with take, drop, show and give handling.
+- Added accusations, deductions/theories, bribery, lying, apologies and comforting approaches.
+- Expanded environmental verbs: open, unlock, break, push, pull, burn, cut, dig, climb, swim, jump, knock, throw, read and touch.
+- Expanded Petling-directed commands and actor recognition.
+- Added lightweight recognition of compound “while” / “then” instructions for future scene logic.
+- Quest log now stores structured intent summaries as the adventure progresses.
+- Discovered locations and conversational context persist through the current day's quest.
+- Existing daily one-quest-per-calendar-day rule remains unchanged: unfinished quests still expire at the date change.
+- All prior systems, including Fix 105 Penny Pusher physics, are preserved.
