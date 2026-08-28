@@ -1,0 +1,11 @@
+PETLING FIX 105 — PENNY PUSHER PRESSURE FIX
+- Fixed the Penny Pusher paying itself out without player input.
+- Removed passive forward movement from the entire existing coin field.
+- Existing coins now remain stationary unless real pressure reaches them.
+- Newly dropped player coins become the source of pushing force when they land.
+- Pressure transfers through physical contact chains from coin to coin.
+- Valuable gold coins, chips and capsules therefore need the player's inserted coins to physically work them toward the edge.
+- Removed the automatic centre/front funnel that was slowly helping prizes fall by themselves.
+- The mechanical shelf still visibly cycles so the cabinet remains alive and dynamic.
+- Coins hanging over the lip only creep while actual push pressure is being applied.
+- Daily Quest system from Fix 104 is preserved unchanged.
