@@ -8026,93 +8026,84 @@ function pusherWin(c){
 function pusherPhysics(dt){
   const s=pusherState;if(!s||!s.running)return;
 
-  // The machine itself still cycles visually, but the shelf does NOT magically
-  // drag the whole coin field towards the payout edge.
+  // Shelf cycles continuously, but it only transmits force into coins that are
+  // actually touching the rear pressure zone / another moving coin.
+  const prev=s.pusher;
   s.pusher+=s.pusherDir*dt*.030;
   if(s.pusher>=8){s.pusher=8;s.pusherDir=-1}
   if(s.pusher<=0){s.pusher=0;s.pusherDir=1}
+  const shelfAdvance=Math.max(0,s.pusher-prev);
 
-  // Falling player coins carry the initial momentum into the pile.
   for(const c of s.coins){
     if(c.state==='won')continue;
     if(c.push===undefined)c.push=0;
-
     if(c.state==='fall'){
-      c.vy+=dt*.00012;
-      c.y+=c.vy*dt*.018;
-      c.x+=c.vx*dt*.018;
+      c.vy+=dt*.00012;c.y+=c.vy*dt*.018;c.x+=c.vx*dt*.018;
       if(c.y>=29){
         c.y=29;c.vy=0;c.state='shelf';
-        // A freshly inserted coin is the source of forward pressure.
-        c.push=1.0;
+        // Inserted coins land in the shelf's pressure zone.
+        c.push=Math.max(c.push,1.35);
       }
       continue;
     }
-
-    // Only stored contact pressure can move a resting coin forwards.
-    if(c.push>0.001){
-      c.y+=c.push*dt*.0038;
-      c.push*=Math.pow(.965,dt/16.67);
-    }else{
-      c.push=0;
+    // The advancing shelf catches coins near the back. This is the missing
+    // mechanical link from Fix 105: the shelf does not move the whole board,
+    // but it DOES keep pushing the rear stack into the pile.
+    if(shelfAdvance>0 && c.y<39){
+      const contact=Math.max(0,1-(c.y-29)/10);
+      c.push=Math.max(c.push,0.55+contact*.75);
     }
-
-    c.vx*=.90;
-    c.x+=c.vx*dt*.01;
-    c.x=Math.max(10,Math.min(90,c.x));
+    if(c.push>.002){
+      c.y+=c.push*dt*.0042;
+      c.push*=Math.pow(.978,dt/16.67);
+    } else c.push=0;
+    c.vx*=.91;c.x+=c.vx*dt*.01;
+    c.x=Math.max(12.5,Math.min(87.5,c.x));
   }
 
-  // Contact-chain physics. A pushed coin can shove the coin immediately in
-  // front of it, which can shove another, producing the real-machine effect.
-  // Coins that are not part of that chain stay put.
+  // Resolve contacts repeatedly so force can propagate through a dense stack
+  // during the same frame instead of dying after the first neighbour.
   const live=s.coins.filter(c=>c.state==='shelf');
-  for(let pass=0;pass<3;pass++){
-    for(let a=0;a<live.length;a++)for(let b=a+1;b<live.length;b++){
-      const A=live[a],B=live[b],dx=B.x-A.x,dy=B.y-A.y;
-      const dist=Math.sqrt(dx*dx+dy*dy)||.01,min=5.15;
-      if(dist<min){
-        const overlap=(min-dist)*.48,nx=dx/dist,ny=dy/dist;
+  for(let pass=0;pass<5;pass++){
+    live.sort((a,b)=>a.y-b.y);
+    for(let a=0;a<live.length;a++){
+      const A=live[a];
+      for(let b=a+1;b<live.length;b++){
+        const B=live[b],dy=B.y-A.y;
+        if(dy>7)break;
+        const dx=B.x-A.x,dist=Math.sqrt(dx*dx+dy*dy)||.01,min=5.25;
+        if(dist>=min)continue;
+        const overlap=min-dist,nx=dx/dist,ny=dy/dist;
 
-        // Separate overlaps sideways/backwards without awarding free progress.
-        A.x-=nx*overlap*.65;
-        B.x+=nx*overlap*.65;
-        A.y-=ny*overlap*.18;
-        B.y+=ny*overlap*.18;
+        // Realistic crowding: most overlap is relieved sideways, but when one
+        // coin is behind another, forward pressure is transferred strongly.
+        A.x-=nx*overlap*.34;B.x+=nx*overlap*.34;
+        A.y-=ny*overlap*.10;B.y+=ny*overlap*.10;
 
-        // Forward pressure only transfers from a coin with genuine momentum to
-        // a coin physically ahead of it.
-        if(dy>0.25 && A.push>0.01){
-          const transmitted=A.push*.72;
-          B.push=Math.max(B.push||0,transmitted);
-          A.push*=.72;
-          B.y+=transmitted*overlap*.22;
-        }else if(dy<-.25 && B.push>0.01){
-          const transmitted=B.push*.72;
-          A.push=Math.max(A.push||0,transmitted);
-          B.push*=.72;
-          A.y+=transmitted*overlap*.22;
+        if(dy>0.15 && A.push>.01){
+          const force=A.push*(0.84+Math.min(.08,overlap*.02));
+          B.push=Math.max(B.push||0,force);
+          B.y+=force*overlap*.32;
+          A.push*=.90;
+        } else if(dy<-.15 && B.push>.01){
+          const force=B.push*.84;
+          A.push=Math.max(A.push||0,force);
+          A.y+=force*overlap*.28;
+          B.push*=.90;
         }
       }
     }
   }
 
-  // Rails constrain the pile, but no longer funnel every coin toward the
-  // centre/front. A payout happens only after real contact pressure gets a
-  // coin far enough over the lip.
   for(const c of live){
-    if(c.x<13)c.x=13;
-    if(c.x>87)c.x=87;
-
-    // Hanging coins can creep only while pressure is still being applied.
-    if(c.y>66 && c.push>0.01){
-      c.y+=c.push*dt*.0024;
-    }
+    // Side walls constrain rather than auto-funnel.
+    c.x=Math.max(13,Math.min(87,c.x));
+    // Once genuinely hanging over the front, active pile pressure can tip it.
+    if(c.y>66 && c.push>.008)c.y+=c.push*dt*.0048;
     if(c.y>75)pusherWin(c);
   }
-
   s.coins=s.coins.filter(c=>c.state!=='won'||pusherEls.has(c.id));
 }
-
 function pusherRenderFrame(){
   const s=pusherState;if(!s)return;
   const shelf=document.getElementById('pusher-shelf');if(shelf)shelf.style.setProperty('--push-y',s.pusher+'px');

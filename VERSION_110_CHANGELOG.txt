@@ -1,0 +1,10 @@
+PETLING FIX 110 — PENNY PUSHER CONTACT PHYSICS
+- Fixed the opposite problem introduced by Fix 105 where the coin pile could become effectively frozen.
+- The moving shelf now physically catches ONLY coins in the rear pressure zone.
+- Rear coins transmit that force through actual coin-to-coin contacts.
+- Dense piles use multiple collision passes per frame, allowing pressure to propagate through several rows instead of dying at the first neighbour.
+- Newly inserted coins receive stronger initial pressure when they land.
+- Coins can now bunch, compress and gradually shove front coins over the payout lip.
+- The entire board still cannot drift/payout by itself: coins away from the rear shelf/contact chain receive no automatic forward force.
+- Side walls constrain coins without funneling them toward payouts.
+- Fix 109 Quest Director 4.0 and all previous systems are preserved.
