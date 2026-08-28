@@ -1,0 +1,11 @@
+PETLING FIX 106 — SMARTER DAILY QUEST PARSER
+- Expanded the Daily Quest free-text parser substantially.
+- Questions are now parsed separately from physical/actions commands.
+- Asking “what is the item we need?”, “what are we looking for?”, “where do we go?”, etc. no longer accidentally advances the quest or triggers unrelated canned dialogue.
+- Added contextual question topics: quest item/relic, objective, missing person, enemy/threat, location, clues/evidence, reward, and quest giver.
+- Answers are grounded in the ACTUAL generated quest state: its relic, missing person, locations, current objective, discovered clues, foe, reward and NPC.
+- Information the player has not discovered yet is deliberately not spoiled.
+- Informational questions do not advance the scene counter.
+- Added additional action vocabulary for taking/retrieving/collecting objects.
+- Improved parser fallback text so players know the kinds of natural questions and actions the system understands.
+- Fix 105 Penny Pusher pressure correction and all previous systems remain intact.

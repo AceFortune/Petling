@@ -1,1 +1,1 @@
-Petling Fix 105 — Penny Pusher Pressure Fix
+Petling Fix 106 — Smarter Daily Quest Parser
