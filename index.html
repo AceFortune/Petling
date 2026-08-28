@@ -2128,6 +2128,30 @@ img,
 
 
 
+
+/* ===== Fix 104: Daily Quest — procedural text adventure ===== */
+.quest-shell{width:min(470px,100%);margin:0 auto;box-sizing:border-box}
+.quest-parchment{background:#211c1c;border:2px solid #725a47;border-radius:9px;padding:11px;box-shadow:inset 0 0 24px rgba(0,0,0,.35)}
+.quest-kicker{font:8px var(--font-display);letter-spacing:1.5px;color:#a58b70;text-align:center}
+.quest-title{font:14px var(--font-display);line-height:1.35;color:#e4cda9;text-align:center;margin:5px 0}
+.quest-subtitle{font:9px var(--font-mono);color:#8e8075;text-align:center;margin-bottom:9px}
+.quest-progress{display:flex;gap:3px;margin:7px 0 10px}
+.quest-progress span{height:5px;flex:1;background:#3a302c;border-radius:3px}
+.quest-progress span.done{background:#9d7753}.quest-progress span.here{background:#e1bd78}
+.quest-story{min-height:145px;max-height:250px;overflow-y:auto;padding:10px;background:#151617;border:1px solid #51463d;border-radius:6px;color:#d7d0c4;font:11px/1.6 var(--font-mono);white-space:pre-line;text-align:left}
+.quest-speaker{color:#e1bd78;font-family:var(--font-display);font-size:9px;letter-spacing:.5px}
+.quest-objective{margin:7px 0;padding:7px;border-left:3px solid #9d7753;background:#191817;color:#aaa095;font:9px/1.4 var(--font-mono)}
+.quest-input-row{display:grid;grid-template-columns:1fr auto;gap:5px;margin-top:8px}
+.quest-input{min-width:0;padding:10px 8px;border:2px solid #59483c;border-radius:6px;background:#0e1112;color:#e0d7c9;font:11px var(--font-mono);outline:none}
+.quest-input:focus{border-color:#a7825d}
+.quest-send{padding:8px 11px;border:2px solid #725a47;border-radius:6px;background:#3a2b25;color:#e4cda9;font:9px var(--font-display)}
+.quest-hints{margin-top:6px;color:#756f68;font:8px/1.45 var(--font-mono)}
+.quest-actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.quest-chip{padding:6px;border:1px solid #59483c;border-radius:5px;background:#191716;color:#aaa095;font:8px var(--font-mono)}
+.quest-result{text-align:center;padding:12px 6px;color:#d9c5a6}
+.quest-journal{max-height:260px;overflow:auto}
+.quest-entry{padding:8px;border-bottom:1px solid #40372f;color:#aaa095;font:9px/1.4 var(--font-mono)}
+
 /* ===== Fix 102: Craps ===== */
 .craps-table{
   width:100%;max-width:430px;margin:8px auto 0;padding:12px 10px 10px;
@@ -9724,6 +9748,276 @@ function spinWheel(){
 }
 
 /* ================= RPS battle ================= */
+
+/* ================= FIX 104 — DAILY QUESTS =================
+   One self-contained procedural fantasy text adventure per local calendar day.
+   The daily seed fixes the quest for that day: reloads cannot reroll it.
+   A quest may be resumed during the SAME day only. At the next local date an
+   unfinished quest expires and a new adventure replaces it.
+   Free text is interpreted locally into action/target/method intents; no API,
+   external AI service, extra art, or network dependency is required.
+================================================================ */
+const QUEST_REGIONS=[
+ ['Weeping Wood','a rain-dark forest of ancient oaks','forest'],
+ ['Greymarsh','a drowned fen threaded with ruined causeways','swamp'],
+ ['The Ashen Downs','windswept barrows beneath a colourless sky','moor'],
+ ['Frostmere','a frozen valley surrounding a black lake','frost'],
+ ['Sunken Vale','a green valley littered with half-buried temples','ruins'],
+ ['Blackthorn Reach','thorn forests and lonely farming hamlets','wild'],
+ ['Moonfall Coast','storm-beaten cliffs above a silver sea','coast'],
+ ['Redwater','a frontier of red rivers and abandoned watchtowers','frontier'],
+ ['Elderhollow','an old woodland where standing stones whisper at dusk','forest'],
+ ['The Gloamfen','misty wetlands haunted by blue lanterns','swamp'],
+ ['Kingsgrave','rolling country built over the tombs of forgotten rulers','tombs'],
+ ['Starfall Heath','purple heathland scarred by an ancient falling star','arcane']
+];
+const QUEST_GIVERS=[
+ ['Mara','an exhausted innkeeper'],['Aldren','a scarred travelling knight'],['Ysabet','the village apothecary'],
+ ['Tomas','a nervous shepherd'],['Sister Elowen','a wandering priest'],['Brann','an old ferryman'],
+ ['Nessa','a sharp-eyed hunter'],['Corvin','a disgraced court mage'],['Perrin','a young gravekeeper'],
+ ['Maud','the village reeve'],['Silas','a suspicious merchant'],['Orla','an elderly herbalist']
+];
+const QUEST_MISSING=['hunter','pilgrim','child','scholar','messenger','grave robber','merchant','knight','herbalist','cartographer'];
+const QUEST_RELICS=['Moon Bell','Crown of Briars','Saint’s Lantern','Glass Key','Wyrmstone','Silver Reliquary','Ashen Idol','Star Compass','Black Chalice','Horn of the First King'];
+const QUEST_FOES=['grave wight','bog troll','barrow wolf','thorn witch','ruin guardian','marsh hag','bandit captain','cave wyrm','possessed knight','starved ogre','bone seer','feral drake'];
+const QUEST_ARCHETYPES=['missing','relic','curse','hunt','escort','mystery','rescue','tomb'];
+const QUEST_TWISTS=['betrayal','misunderstood','curse','decoy','guardian','doublecross','transformed','ancient'];
+const QUEST_LOCATIONS=['abandoned chapel','collapsed watchtower','stone circle','flooded crypt','hunter’s cabin','ruined mill','buried shrine','rope bridge','forgotten graveyard','cave mouth','old battlefield','moonlit clearing'];
+const QUEST_CLUES=['a strip of bloodied cloth','three-toed tracks','a broken silver chain','wax from a black candle','a strange blue feather','fresh bootprints','a page covered in runes','a snapped arrow','a child’s wooden charm','black salt scattered in a circle'];
+const QUEST_TEMPER_ACTIONS=['search','ask','pet','persuade','threaten','attack','follow','sneak','use','give','wait','leave'];
+
+function questDayKey(d=new Date()){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function questHash(str){
+  let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0;
+}
+function questRng(seed){let x=seed>>>0;return()=>{x=(Math.imul(x,1664525)+1013904223)>>>0;return x/4294967296}}
+function qpick(r,a){return a[Math.floor(r()*a.length)]}
+function questPlayerSeed(){
+  const basis=(state&&((state.bio&&state.bio.hatchedAt)||state.birthTime||state.createdAt||state.name))||'petling';
+  return questHash(String(basis));
+}
+function ensureDailyQuestState(){
+  if(!state.dailyQuests)state.dailyQuests={active:null,journal:[]};
+  if(!state.dailyQuests.journal)state.dailyQuests.journal=[];
+  const today=questDayKey();
+  const a=state.dailyQuests.active;
+  if(a&&a.day!==today){
+    if(!a.complete) state.dailyQuests.journal.unshift({day:a.day,title:a.title,outcome:'EXPIRED',summary:'The day ended before the adventure was completed.'});
+    state.dailyQuests.active=null;
+    state.dailyQuests.journal=state.dailyQuests.journal.slice(0,60);
+    saveState();
+  }
+}
+function generateDailyQuest(){
+  ensureDailyQuestState();
+  const day=questDayKey(),seed=questHash(day)^questPlayerSeed(),r=questRng(seed);
+  const region=qpick(r,QUEST_REGIONS),giver=qpick(r,QUEST_GIVERS),arch=qpick(r,QUEST_ARCHETYPES);
+  const missing=qpick(r,QUEST_MISSING),relic=qpick(r,QUEST_RELICS),foe=qpick(r,QUEST_FOES),twist=qpick(r,QUEST_TWISTS);
+  const locs=[qpick(r,QUEST_LOCATIONS),qpick(r,QUEST_LOCATIONS),qpick(r,QUEST_LOCATIONS)];
+  while(locs[1]===locs[0])locs[1]=qpick(r,QUEST_LOCATIONS);
+  while(locs[2]===locs[1]||locs[2]===locs[0])locs[2]=qpick(r,QUEST_LOCATIONS);
+  const clue1=qpick(r,QUEST_CLUES),clue2=qpick(r,QUEST_CLUES.filter(x=>x!==clue1));
+  const titles={
+    missing:`The ${qpick(r,['Lost','Vanished','Silent','Last'])} ${missing}`,
+    relic:`The ${relic}`,curse:`The Curse of ${region[0]}`,hunt:`The Beast of ${region[0]}`,
+    escort:`The Road Through ${region[0]}`,mystery:`Whispers in ${region[0]}`,
+    rescue:`Beneath ${region[0]}`,tomb:`The Tomb Below ${region[0]}`
+  };
+  const hooks={
+    missing:`A ${missing} vanished two nights ago. ${giver[0]} swears they were last seen heading towards ${locs[0]}.`,
+    relic:`The ${relic} was stolen before dawn. Without it, ${region[0]} is already beginning to change.`,
+    curse:`Every night at midnight, something in ${region[0]} calls villagers by name. Those who answer do not return unchanged.`,
+    hunt:`Livestock have been found torn apart along the road. Witnesses describe something far larger than any ordinary beast.`,
+    escort:`${giver[0]} must reach an isolated settlement before nightfall, but nobody will travel the old road anymore.`,
+    mystery:`Bells have begun ringing beneath the earth where no chapel has stood for centuries.`,
+    rescue:`Several locals are trapped beyond ${locs[0]}. Something has blocked the only safe road back.`,
+    tomb:`A newly opened passage beneath ${locs[0]} bears the seal of a king whose tomb was supposedly found centuries ago.`
+  };
+  const q={day,seed,title:titles[arch],region:region[0],regionDesc:region[1],giver:giver[0],giverRole:giver[1],
+    archetype:arch,missing,relic,foe,twist,locs,clues:[clue1,clue2],scene:0,complete:false,failed:false,
+    started:false,accepted:false,flags:{},turns:0,battles:0,log:[],reward:45+Math.floor(r()*36),xp:30+Math.floor(r()*31)};
+  q.objective=`Speak with ${q.giver} and investigate the trouble in ${q.region}.`;
+  q.text=`${q.giver}, ${q.giverRole}, waits for you at the edge of ${q.region}.\n\n“${hooks[arch]}”\n\n${q.giver} looks down at ${state.name}. “If the two of you are willing, I could use the help.”`;
+  state.dailyQuests.active=q;saveState();return q;
+}
+function getDailyQuest(){ensureDailyQuestState();return state.dailyQuests.active||generateDailyQuest()}
+function dailyQuestMenuStatus(){
+  ensureDailyQuestState();const q=state.dailyQuests.active;
+  if(!q)return 'one new adventure today';
+  if(q.complete)return 'today’s adventure complete';
+  return q.started?'continue today’s adventure':'today’s adventure awaits';
+}
+function questInterpret(raw){
+  const s=(raw||'').trim().toLowerCase();
+  const has=(...xs)=>xs.some(x=>s.includes(x));
+  let action='unknown';
+  if(has('attack','fight','kill','strike','hit','battle'))action='attack';
+  else if(has('petling','my pet','tell '+String(state.name||'').toLowerCase(),'send '+String(state.name||'').toLowerCase()))action='pet';
+  else if(has('search','look','inspect','investigate','examine','check','find','track','sniff'))action='search';
+  else if(has('ask','talk','speak','question','say','tell','conversation'))action='ask';
+  else if(has('persuade','convince','reason','calm','reassure','befriend'))action='persuade';
+  else if(has('threaten','intimidate','scare','warn'))action='threaten';
+  else if(has('follow','trail','tracks','footprints'))action='follow';
+  else if(has('sneak','hide','quiet','stealth'))action='sneak';
+  else if(has('give','offer','hand'))action='give';
+  else if(has('use','open','light','break','touch','read'))action='use';
+  else if(has('wait','listen','watch'))action='wait';
+  else if(has('leave','run','retreat','go back'))action='leave';
+  return {action,raw:s,kind:has('politely','kindly','gentle')?'gentle':has('angry','force','rough')?'forceful':'normal'};
+}
+function questPetLine(kind){
+  const temp=(state.bio&&state.bio.temperament)||'Curious';
+  const lines={
+    search:[`${state.name} lowers its head and begins carefully searching the ground.`,`${state.name} darts ahead, fascinated by a scent you cannot detect.`],
+    danger:[`${state.name} freezes. A low warning sound escapes it.`,`${state.name} moves in front of you, staring into the darkness.`],
+    social:[`${state.name} studies the stranger with obvious suspicion.`,`${state.name} approaches first, apparently deciding this person is safe.`]
+  };
+  const a=lines[kind]||lines.search;return a[questHash(temp+kind+getDailyQuest().scene)%a.length];
+}
+function questAdvance(text,obj){
+  const q=getDailyQuest();q.scene++;q.turns++;q.text=text;if(obj)q.objective=obj;
+  q.log.push({scene:q.scene,text:text.slice(0,260)});saveState();renderDailyQuest();
+}
+function questSceneResponse(intent){
+  const q=getDailyQuest(),s=q.scene,a=intent.action;
+  if(a==='unknown')return {stay:true,text:`You consider doing that, but aren't quite sure how to approach it here.\n\nTry describing a clear action: ask someone a question, search the area, follow something, tell ${state.name} what to do, sneak, use something, persuade, threaten, or attack.`};
+
+  if(s===0){
+    if(['ask','persuade','pet','search'].includes(a)){
+      q.flags.spoke=true;
+      return {text:`${a==='pet'?questPetLine('social'):`You question ${q.giver} carefully.`}\n\n${q.giver} tells you the trouble began near the ${q.locs[0]}. Before you leave, ${q.giver} presses a rough map into your hand.\n\n“Whatever you find, don't assume the first story you hear is the truth.”`,
+        obj:`Travel to the ${q.locs[0]} and search for evidence.`};
+    }
+    if(a==='threaten')return {stay:true,text:`${q.giver} recoils. “Threatening the person who asked for your help is an interesting strategy.” ${state.name} looks embarrassed for you.`};
+    return {text:`You decide not to waste more time talking. With ${state.name} beside you, you take the old road into ${q.region}.`,obj:`Investigate the ${q.locs[0]}.`};
+  }
+  if(s===1){
+    if(['search','follow','pet','use','sneak','wait'].includes(a)){
+      q.flags.clue1=true;
+      return {text:`At the ${q.locs[0]}, ${a==='pet'?questPetLine('search'):'you search among the abandoned debris'}.\n\nYou discover ${q.clues[0]}. More importantly, there are signs that somebody deliberately tried to hide it. A trail leads deeper into ${q.region}, towards the ${q.locs[1]}.`,obj:`Follow the evidence to the ${q.locs[1]}.`};
+    }
+    if(a==='attack')return {stay:true,text:`There is nothing here worth attacking. ${state.name} watches you assault the scenery without enthusiasm.`};
+    return {stay:true,text:`Nothing answers. The place remains silent. Searching the ground or asking ${state.name} to investigate might reveal more.`};
+  }
+  if(s===2){
+    if(['follow','search','pet','sneak','use'].includes(a)){
+      q.flags.clue2=true;
+      const reveal=q.twist==='misunderstood'?`The supposed monster has been protecting someone from the real danger.`:
+        q.twist==='betrayal'||q.twist==='doublecross'?`${q.giver} has not told you the whole truth. Their mark appears among the evidence.`:
+        q.twist==='transformed'?`The creature you are hunting may actually be the missing ${q.missing}, changed by magic.`:
+        q.twist==='guardian'?`The thing locals fear appears to be guarding the ${q.relic}, not stealing it.`:
+        `Old magic is involved. Whatever happened here began long before the current trouble.`;
+      return {text:`The trail ends at the ${q.locs[1]}. There you find ${q.clues[1]}.\n\nPiece by piece, the truth becomes clearer: ${reveal}\n\nThen ${questPetLine('danger')} Something is approaching through the dark.`,obj:`Decide how to handle the creature approaching.`};
+    }
+    return {stay:true,text:`The trail is faint. You will need to search, follow it carefully, or ask ${state.name} to track it.`};
+  }
+  if(s===3){
+    if(['persuade','ask','pet','sneak'].includes(a)&&['misunderstood','guardian','transformed'].includes(q.twist)){
+      q.flags.mercy=true;
+      return {text:`You hold your ground instead of attacking. ${state.name} slowly relaxes.\n\nThe shape emerges — and your instinct was right. Violence would have hidden the truth. It allows you to pass and reveals a concealed path towards the ${q.locs[2]}.`,obj:`Reach the ${q.locs[2]} and confront whoever is behind this.`};
+    }
+    if(a==='leave')return {stay:true,text:`You retreat a short distance, but the day's quest will remain unfinished unless you face what lies ahead.`};
+    return {battle:true,text:`The ${q.foe} lunges from the shadows. There is no more time to talk.`};
+  }
+  if(s===4){
+    if(['search','use','ask','pet','follow','sneak'].includes(a)){
+      return {text:`You reach the ${q.locs[2]} as evening settles over ${q.region}. Inside, the final pieces fall into place.\n\n${q.twist==='betrayal'||q.twist==='doublecross'?`${q.giver}'s deception is undeniable — but another figure has been using them as a pawn.`:`Someone has been deliberately feeding the fear surrounding these events.`}\n\nA final adversary steps between you and the truth.`,obj:`Face the final threat.`};
+    }
+    return {stay:true,text:`The answer is somewhere inside the ${q.locs[2]}. Search it, investigate it, or have ${state.name} scout ahead.`};
+  }
+  if(s===5){
+    if(['persuade','ask','pet'].includes(a)&&q.flags.mercy){
+      q.flags.peaceful=true;return {complete:true,text:`Remembering what you learned, you refuse to repeat the same mistake. Words — and ${state.name}'s unexpected intervention — finally break the deadlock.\n\nThe danger ends without another fight.`};
+    }
+    return {battle:true,final:true,text:`There is no path around the final confrontation. ${state.name} steps forward beside you.`};
+  }
+  return {complete:true,text:`With the mystery settled, you and ${state.name} begin the journey home.`};
+}
+function questSubmit(){
+  const inp=document.getElementById('quest-input');if(!inp)return;
+  const raw=inp.value.trim();if(!raw)return;
+  const q=getDailyQuest();if(q.complete)return;
+  const intent=questInterpret(raw),res=questSceneResponse(intent);
+  q.started=true;q.lastInput=raw;q.turns++;
+  if(res.stay){q.text=res.text;saveState();renderDailyQuest();return}
+  if(res.battle){q.text=res.text;saveState();renderDailyQuest();setTimeout(()=>questStartBattle(!!res.final),450);return}
+  if(res.complete){questComplete(res.text);return}
+  q.scene++;q.text=res.text;if(res.obj)q.objective=res.obj;q.log.push({scene:q.scene,input:raw});saveState();renderDailyQuest();
+}
+function questStartBattle(finalBattle=false){
+  const q=getDailyQuest();q.battles++;q.flags.pendingBattle={final:finalBattle};saveState();
+  const tier=currentTierIndex(),oppId=1+((q.seed+q.scene*19+q.battles*7)%100);
+  const oppStats=scaledOpponent(tier,oppId,finalBattle?1.12:1.0),petStats=currentSpeciesStats();
+  const petMaxHP=50+petStats.vigor*4,oppMaxHP=50+oppStats.vigor*4;
+  battlePending={tier,oppId,oppStats,petStats,petHP:petMaxHP,petMaxHP,oppHP:oppMaxHP,oppMaxHP,round:0,resolved:false,quest:true,questFinal:finalBattle};
+  const ov=document.getElementById('mg-overlay');if(ov)ov.remove();renderBattleModal();
+}
+function finishQuestBattle(p){
+  const q=getDailyQuest(),won=p.win,finalBattle=p.questFinal;
+  if(won){state.gold+=p.gold;gainXP(p.xp);pushLog(`Quest battle victory! +${p.gold}g +${p.xp}xp`)}
+  else{state.health=clamp(state.health-p.dmg,0,100);pushLog(`Lost a quest battle. -${p.dmg} health`)}
+  q.flags.pendingBattle=null;
+  battlePending=null;document.getElementById('battle-overlay')?.remove();
+  if(!won){
+    // Defeat branches the story rather than deleting the daily adventure.
+    q.text=`You wake some time later, bruised but alive. ${state.name} has dragged you away from danger.\n\nThe defeat cost you time, but also revealed another route. You can still finish today's quest.`;
+    q.scene=Math.min(5,q.scene+1);q.objective=`Recover and continue towards the ${q.locs[2]}.`;
+    saveState();renderDailyQuest();return;
+  }
+  if(finalBattle){questComplete(`The final enemy falls. For several seconds, ${q.region} is completely silent.\n\n${state.name} looks back at you. Whatever brought you here is finally over.`);return}
+  q.scene++;q.text=`The ${q.foe} is defeated. Searching the aftermath, you find enough evidence to continue towards the ${q.locs[2]}.\n\n${state.name} is tired, but clearly intends to see this through.`;q.objective=`Continue to the ${q.locs[2]}.`;saveState();renderDailyQuest();
+}
+function questComplete(epilogue){
+  const q=getDailyQuest();if(q.complete)return;
+  q.complete=true;q.text=epilogue;q.objective='Quest complete.';
+  state.gold+=q.reward;gainXP(q.xp);
+  state.dailyQuests.journal.unshift({day:q.day,title:q.title,outcome:'COMPLETE',summary:`Completed in ${q.turns} actions with ${q.battles} battle${q.battles===1?'':'s'}.`,reward:q.reward,xp:q.xp});
+  state.dailyQuests.journal=state.dailyQuests.journal.slice(0,60);
+  addPetMemory(`Adventured with you on “${q.title}”.`,'quest_'+q.day);
+  pushLog(`Daily Quest complete: ${q.title}. +${q.reward}g +${q.xp}xp`);
+  saveState();renderDailyQuest();
+}
+function renderDailyQuest(){
+  ensureDailyQuestState();const q=getDailyQuest();
+  const div=document.createElement('div');div.className='overlay-panel pop-in';div.id='mg-overlay';
+  const prog=Math.min(6,q.scene);
+  div.innerHTML=`
+    <button class="overlay-close" onclick="openBattleHub()">×</button>
+    <div class="overlay-title">DAILY QUEST</div>
+    <div class="quest-shell"><div class="quest-parchment">
+      <div class="quest-kicker">${q.day} · ${q.region.toUpperCase()}</div>
+      <div class="quest-title">${q.title.toUpperCase()}</div>
+      <div class="quest-subtitle">${q.regionDesc}</div>
+      <div class="quest-progress">${[0,1,2,3,4,5,6].map(n=>`<span class="${n<prog?'done':n===prog?'here':''}"></span>`).join('')}</div>
+      <div class="quest-objective"><b>OBJECTIVE:</b> ${q.objective}</div>
+      <div class="quest-story">${q.text}</div>
+      ${q.complete?`
+        <div class="quest-result"><b>QUEST COMPLETE</b><br><br>+${q.reward} gold · +${q.xp} xp<br><br>Another adventure arrives tomorrow.</div>
+        <button class="mg-action-btn" onclick="openQuestJournal()">ADVENTURE JOURNAL</button>`:`
+        <div class="quest-input-row"><input id="quest-input" class="quest-input" maxlength="180" autocomplete="off" placeholder="What do you do?" onkeydown="if(event.key==='Enter')questSubmit()"><button class="quest-send" onclick="questSubmit()">DO IT</button></div>
+        <div class="quest-hints">Write naturally. Try: “ask about the ruins”, “search the ground”, “tell ${state.name} to sniff the tracks”, “sneak closer”, “persuade them”, or “attack”.</div>
+        <div class="quest-actions"><button class="quest-chip" onclick="questQuick('search the area')">SEARCH</button><button class="quest-chip" onclick="questQuick('tell ${state.name} to investigate')">ASK ${state.name.toUpperCase()}</button><button class="quest-chip" onclick="questQuick('talk to them')">TALK</button></div>`}
+    </div></div>`;
+  const old=document.getElementById('mg-overlay');if(old)old.replaceWith(div);else openOverlay(div);
+  setTimeout(()=>document.getElementById('quest-input')?.focus(),50);
+}
+function questQuick(s){const i=document.getElementById('quest-input');if(i){i.value=s;questSubmit()}}
+function openDailyQuest(){
+  if(guardAsleep())return;if(guardSick())return;if(guardAtSpring())return;
+  if(state.formStage===0){showToast('Too young to quest yet — let it grow up first!');return}
+  const q=getDailyQuest();q.started=true;saveState();renderDailyQuest();
+}
+function openQuestJournal(){
+  ensureDailyQuestState();const entries=state.dailyQuests.journal||[];
+  const div=document.createElement('div');div.className='overlay-panel pop-in';div.id='mg-overlay';
+  div.innerHTML=`<button class="overlay-close" onclick="renderDailyQuest()">×</button><div class="overlay-title">ADVENTURE JOURNAL</div><div class="quest-parchment quest-journal">${entries.length?entries.map(e=>`<div class="quest-entry"><b>${e.day} — ${e.title}</b><br>${e.outcome} · ${e.summary}${e.reward?`<br>Reward: ${e.reward}g · ${e.xp}xp`:''}</div>`).join(''):'No completed adventures yet.'}</div>`;
+  document.getElementById('mg-overlay')?.replaceWith(div);
+}
+window.openDailyQuest=openDailyQuest;window.questSubmit=questSubmit;window.questQuick=questQuick;window.openQuestJournal=openQuestJournal;
+
+
 function openBattleHub(){
   if (guardAsleep()) return;
   if (guardSick()) return;
@@ -9742,6 +10036,7 @@ function openBattleHub(){
       <div class="menu-card" onclick="closeOverlay(); adventureStart();"><span class="mi">⚔</span><div class="ml">QUICK BATTLE</div><div class="msub">one-off fight</div></div>
       <div class="menu-card ${dungeonLocked?'disabled':''}" onclick="startDungeon()"><span class="mi">🗝</span><div class="ml">DUNGEON</div><div class="msub">${state.artifacts.length} artifacts found</div></div>
       <div class="menu-card" onclick="openArenaHub()"><span class="mi">🏟</span><div class="ml">THE ARENA</div><div class="msub">endless tournament</div></div>
+      <div class="menu-card" onclick="openDailyQuest()"><span class="mi">Q</span><div class="ml">DAILY QUEST</div><div class="msub">${dailyQuestMenuStatus()}</div></div>
     </div>
     <div class="battle-log" style="margin-top:10px;">${dungeonLocked ? 'Rest up before a dungeon run — it takes more out of your pet.' : 'Dungeons ramp up in difficulty and end in a boss fight.'}</div>
   `;
@@ -10228,6 +10523,12 @@ function fleeBattle(){
     endDungeon(false);
     return;
   }
+  if (p.quest){
+    const q=getDailyQuest();
+    q.flags.pendingBattle=null;
+    q.text=`You and ${state.name} retreat before the fight is decided. The quest is still waiting, but today's clock is still running.`;
+    battlePending=null;saveState();renderDailyQuest();return;
+  }
   battlePending = null;
   pushLog('🏃 Fled from the battle.');
   saveState();
@@ -10345,6 +10646,10 @@ function renderBattleResult(){
 function finishBattle(){
   if (!battlePending) return;
   const p = battlePending;
+  if (p.quest){
+    finishQuestBattle(p);
+    return;
+  }
   if (p.dungeon){
     const won = p.win;
     const isBoss = p.isBoss;

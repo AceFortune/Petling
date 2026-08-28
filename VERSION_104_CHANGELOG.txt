@@ -1,0 +1,16 @@
+PETLING FIX 104 — DAILY PROCEDURAL QUEST ADVENTURES
+
+- Added DAILY QUEST to the Battle menu.
+- Exactly one quest is generated for each local calendar day.
+- Today's quest is deterministic from date + save identity, so refreshing cannot reroll it.
+- An unfinished quest EXPIRES when the local date changes. Quests do NOT span multiple days.
+- Procedural fantasy generator combines regions, quest givers, archetypes, missing persons, relics, foes, twists, locations, clues and branching resolutions.
+- Text-adventure interface accepts free-typed natural-language commands locally without an AI/API dependency.
+- Parser recognises investigation, conversation, Petling commands, tracking, stealth, persuasion, intimidation, item/use actions, waiting, retreat and combat.
+- Context-sensitive story resolution means the same action can produce different results depending on scene and generated twist.
+- Petling participates as a companion during tracking, social scenes, warnings and alternative solutions.
+- Quest combat hands off to the existing normal Battle system and returns to the correct quest scene afterwards.
+- Losing a quest battle can branch the story rather than automatically ending the quest.
+- Typical adventure has 6+ story stages and up to multiple battles, designed as a substantial once-daily activity.
+- Quest completion awards Gold and XP and records the adventure permanently in the Adventure Journal.
+- Completed quests cannot be repeated that day. A brand-new quest arrives on the next local date.
