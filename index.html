@@ -11820,6 +11820,11 @@ function gardenResidentSlots(){
 
 /* ================= ENTRY / EXIT ================= */
 async function openGarden(){
+  // Warm the browser cache for the water already present in the current garden.
+  if(garden&&garden.tiles){
+    const currentWater=garden.tiles.map((t,i)=>t&&t.terrain==='terrain_water'?i:null).filter(i=>i!==null);
+    gardenPreloadWaterImages(currentWater);
+  }
   auditCritterRequirementUnlocks();
   migrateCritterV3Roster();
   if (typeof recordHabit === 'function') {
@@ -12088,8 +12093,35 @@ function gardenWaterMask(i){
   if(gardenWaterNeighbour(i,-1,-1))m|=128;  // NW
   return m;
 }
+function gardenWaterHasLilies(i){
+  // Stable sparse distribution: about 1 in 8 water positions use the original
+  // lily-pad texture. It depends only on the grid position, so lilies do not
+  // flicker/change simply because neighbouring water is edited.
+  return (((i * 37) + 11) % 8) === 0;
+}
 function gardenWaterAutoSrc(i){
-  return `assets/garden/water_dynamic/water_dyn_${String(gardenWaterMask(i)).padStart(3,'0')}.png`;
+  const mask=String(gardenWaterMask(i)).padStart(3,'0');
+  const folder=gardenWaterHasLilies(i)?'water_dynamic':'water_dynamic_clean';
+  return `assets/garden/${folder}/water_dyn_${mask}.png`;
+}
+
+
+function gardenWaterAffectedIndices(i){
+  const x=i%GARDEN_COLS,y=Math.floor(i/GARDEN_COLS),out=[];
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const nx=x+dx,ny=y+dy;
+    if(nx>=0&&ny>=0&&nx<GARDEN_COLS&&ny<GARDEN_ROWS)out.push(ny*GARDEN_COLS+nx);
+  }
+  return out;
+}
+function gardenPreloadWaterImages(indices){
+  const urls=new Set();
+  (indices||[]).forEach(j=>{
+    if(garden.tiles[j]&&garden.tiles[j].terrain==='terrain_water') urls.add(gardenWaterAutoSrc(j));
+  });
+  return Promise.all([...urls].map(src=>new Promise(resolve=>{
+    const im=new Image(); im.onload=im.onerror=resolve; im.src=src;
+  })));
 }
 
 function tileArtUrl(t,i){
@@ -15901,7 +15933,7 @@ body.petling-menu-open::before{
 
 /* ===== Fix 81: clean seamless lake rendering ===== */
 .garden-overlay .g-water-tile{
-  background-color:#27a9cf !important;
+  background-color:transparent !important;
   background-size:100% 100% !important;
   background-position:center center !important;
   background-repeat:no-repeat !important;

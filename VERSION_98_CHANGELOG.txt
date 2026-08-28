@@ -1,0 +1,9 @@
+PETLING FIX 98 — WATER POLISH
+
+- Dynamic water geometry from Fix 97 is unchanged.
+- Added a second lily-pad-free version of every one of the 256 dynamic water configurations.
+- Lily pads now appear on only a small stable minority of water positions instead of every tile.
+- Lily distribution is based on tile position, so pads do not flicker in/out when neighbouring water changes.
+- Removed the bright cyan/light-blue CSS fallback that briefly appeared while a dynamic pond sprite loaded.
+- Existing water images are proactively cached when the Garden opens to further reduce visible loading.
+- All existing project assets and gameplay systems remain intact.
