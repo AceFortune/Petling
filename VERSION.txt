@@ -28,3 +28,14 @@ FIX 88 — PRAISE / SCOLD HOLD CURRENT POSITION
 - Petling remains stationary for about 2.2 seconds while the praise/scold reaction is visible.
 - Normal autonomous roaming then resumes from that same position.
 - Existing happiness, bond, affection, attention and scolding rules are unchanged.
+
+FIX 89 — STARTER CRITTERS + PETLING GARDEN INTERACTIONS
+- Mosskin is now a forgiving Level 1 grass visitor: plenty of ordinary grass is enough to attract it.
+- Glimmerkin is now a forgiving Level 1 soil visitor: creating a broad dirt/soil patch is enough to attract it.
+- Pebblekin is now a forgiving Level 1 water visitor: a modest pond is enough to attract it.
+- These three act as an organic terrain tutorial; their longer-term residency requirements remain intact.
+- Petling movement in the Garden now chooses real contextual destinations: grown plants, decorations, water and active resident critters.
+- On reaching a destination the Petling stops there and visibly interacts instead of merely wandering past it.
+- Added flower/plant sniffing, decoration inspection, pond watching/drinking, critter watching/greeting and quiet resting behaviours.
+- Petling temperament and likes weight these behaviours so different Petlings use the same Garden differently.
+- No teleporting is used; the Petling physically travels to its interaction target.
