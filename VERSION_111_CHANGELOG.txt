@@ -1,0 +1,13 @@
+PETLING FIX 111 — DAY OUT
+- Added DAY OUT as a new main Petling subsection.
+- One Day Out may be chosen per real calendar day.
+- Destinations: Beach, Forest, Carnival, Zoo, Park and Tavern.
+- Tavern is locked until the Petling reaches Adult stage.
+- Choosing a destination starts a real one-hour outing on a separate destination screen.
+- Each destination has four unique activities.
+- Activities award immediate happiness/bond and can only be performed once per outing.
+- Completing the hour awards an additional destination-specific happiness/bond bonus, with a participation bonus for actually doing activities.
+- Day Outs create a Petling memory and log entry.
+- Outings never carry into another calendar day's allowance; another destination becomes available on the next day.
+- Separate retro destination scenes use lightweight CSS rather than requiring a new asset pack.
+- Fix 110 Penny Pusher physics and Fix 109 Quest Director 4.0 are preserved.

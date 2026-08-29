@@ -1,0 +1,12 @@
+PETLING FIX 112 — DAY OUT MINIGAMES
+- Every Day Out activity is now a playable mini-game rather than a reward button.
+- 24 distinct activity/game pairings across Beach, Forest, Carnival, Zoo, Park and Tavern.
+- Beach: Wave Hop, Sandcastle Stack, Shell Match, Sunset Breath.
+- Forest: Trail Choice, Scent Tracker, Root Climb, Picnic Pack.
+- Carnival: Ring Toss, Ride Balance, Prize Claw, Light Memory.
+- Zoo: Animal Spotter, Aquarium Follow, Feeding Sort, Keeper Watch.
+- Park: Fetch Catch, Lily Hop, Roll-o-Meter, Quiet Together.
+- Tavern: Tavern Plate, Bard Rhythm, Local Chat, Fireside Story.
+- Mini-game performance affects the happiness/bond reward, but even a poor attempt still counts as shared time rather than punishing the Petling.
+- Each activity remains one-use-per-outing, preserving the one-hour Day Out structure and one Day Out per real calendar day.
+- Existing Fix 111 Day Out, Fix 110 Penny Pusher and Quest Director systems are preserved.

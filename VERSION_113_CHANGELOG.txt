@@ -1,0 +1,9 @@
+PETLING FIX 113 — DAY OUT LOCATION BACKGROUNDS
+- Integrated the user's bespoke pixel-art Day Out backgrounds.
+- Beach, Forest, Carnival, Zoo and Park each use separate day and night artwork.
+- Tavern uses its single supplied interior artwork at all times.
+- Day/night artwork is selected automatically from the player's local clock: day from 07:00–17:59, night from 18:00–06:59.
+- Enlarged the Day Out location viewport so the portrait artwork is substantially more visible.
+- Removed the old generated CSS sun/ground decoration from the active Day Out scene.
+- Petling remains overlaid on the supplied location artwork.
+- All 24 Fix 112 Day Out minigames and previous systems are preserved.

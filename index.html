@@ -2152,6 +2152,39 @@ img,
 .quest-journal{max-height:260px;overflow:auto}
 .quest-entry{padding:8px;border-bottom:1px solid #40372f;color:#aaa095;font:9px/1.4 var(--font-mono)}
 
+
+/* ===== Fix 111: Day Out ===== */
+.dayout-shell{width:min(470px,100%);margin:0 auto}
+.dayout-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:8px}
+.dayout-place{position:relative;min-height:105px;padding:10px 8px;border:2px solid #66554b;border-radius:9px;background:linear-gradient(180deg,#29231f,#191817);color:#d9cbb8;cursor:pointer;text-align:left;overflow:hidden}
+.dayout-place.disabled{opacity:.45;cursor:default}
+.dayout-place .dp-icon{font-size:28px;display:block;margin-bottom:6px}
+.dayout-place .dp-name{font:10px var(--font-display);color:#e2bd84;letter-spacing:.6px}
+.dayout-place .dp-desc{font:8px/1.35 var(--font-mono);color:#91877e;margin-top:4px}
+.dayout-place .dp-lock{position:absolute;right:6px;top:6px;font:7px var(--font-display);color:#bd8d8d}
+.dayout-card{border:2px solid #625348;border-radius:10px;padding:10px;background:#1c1a19}
+.dayout-scene{position:relative;height:360px;border:2px solid #65584c;border-radius:8px;overflow:hidden;background:#222 center center/cover no-repeat;box-shadow:inset 0 0 25px rgba(0,0,0,.25)}
+.dayout-scene.beach{background:linear-gradient(#8dbac9 0 43%,#5e9cad 43% 61%,#d3bb79 61% 100%)}
+.dayout-scene.forest{background:linear-gradient(#597c66 0 36%,#315542 36% 68%,#273d2e 68%)}
+.dayout-scene.carnival{background:linear-gradient(#63587d 0 52%,#4b3855 52% 70%,#352b38 70%)}
+.dayout-scene.zoo{background:linear-gradient(#94b9a0 0 44%,#718d58 44% 70%,#566a42 70%)}
+.dayout-scene.park{background:linear-gradient(#9ebfc2 0 42%,#79a565 42% 72%,#547745 72%)}
+.dayout-scene.tavern{background:linear-gradient(#5b3a2b 0 42%,#3d281f 42% 68%,#271a17 68%)}
+.dayout-sun{display:none;position:absolute;right:25px;top:20px;width:28px;height:28px;border-radius:50%;background:#ead28b;box-shadow:0 0 15px rgba(234,210,139,.45)}
+.dayout-ground-detail{display:none;position:absolute;left:8%;right:8%;bottom:19%;height:4px;border-radius:50%;background:rgba(0,0,0,.15)}
+.dayout-pet{position:absolute;left:50%;bottom:23%;transform:translateX(-50%);width:74px;height:74px;display:flex;align-items:center;justify-content:center;animation:dayoutBob 2.2s ease-in-out infinite}
+.dayout-pet img{max-width:74px;max-height:74px;image-rendering:pixelated}
+@keyframes dayoutBob{50%{transform:translateX(-50%) translateY(-4px)}}
+.dayout-place-title{position:absolute;left:9px;top:8px;font:9px var(--font-display);color:rgba(255,255,255,.82);text-shadow:0 1px 2px #000}
+.dayout-timer{margin:7px 0;padding:7px;border:1px solid #584b43;border-radius:6px;text-align:center;font:9px var(--font-display);color:#d8b97f;background:#151515}
+.dayout-bar{height:6px;background:#302b28;border-radius:4px;overflow:hidden;margin-top:5px}.dayout-bar>i{display:block;height:100%;background:#b79259}
+.dayout-activities{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}
+.dayout-act{padding:9px 6px;border:1px solid #66554b;border-radius:7px;background:#28211e;color:#d8c6ae;font:8px/1.3 var(--font-display);cursor:pointer}
+.dayout-act small{display:block;color:#877e76;font:8px/1.25 var(--font-mono);margin-top:3px}
+.dayout-act:disabled{opacity:.38}
+.dayout-log{min-height:47px;margin-top:7px;padding:7px;border-radius:6px;background:#121313;color:#a9a39b;font:9px/1.45 var(--font-mono)}
+.dayout-status{font:9px/1.5 var(--font-mono);color:#9d9388;margin:7px 0}
+
 /* ===== Fix 102: Craps ===== */
 .craps-table{
   width:100%;max-width:430px;margin:8px auto 0;padding:12px 10px 10px;
@@ -4294,7 +4327,7 @@ function ensureBehaviorState(){
   if (!state.habits.food) state.habits.food = {};
   if (!state.habits.toys) state.habits.toys = {};
   if (!state.habits.mealHours || state.habits.mealHours.length !== 24) state.habits.mealHours = Array(24).fill(0);
-  ['feed','pet','play','train','nap','praise','scold','battle','garden','aquarium','walk'].forEach(k=>{
+  ['feed','pet','play','train','nap','praise','scold','battle','garden','aquarium','walk','dayout'].forEach(k=>{
     if (state.habits[k] === undefined) state.habits[k] = 0;
   });
   if (!state.memories) state.memories = [];
@@ -10521,6 +10554,233 @@ function openQuestJournal(){
 window.openDailyQuest=openDailyQuest;window.questSubmit=questSubmit;window.questQuick=questQuick;window.openQuestJournal=openQuestJournal;
 
 
+
+/* ================= FIX 111 — DAY OUT =================
+   One real-world Day Out per local calendar day. Once chosen, the Petling is
+   away at that destination for one real hour. Each destination has its own
+   activities. Happiness and bond are awarded through participation and a
+   completion bonus. Tavern requires Adult stage or older.
+================================================================ */
+const DAYOUT_DURATION=60*60*1000;
+const DAYOUT_PLACES={
+ beach:{name:'Beach',icon:'≈',desc:'Sand, sea and a long lazy shoreline.',happy:8,bond:2.5,acts:[
+  ['PADDLE','Splash in the shallows',5,0.7],['BUILD SANDCASTLE','Make something together',4,1.0],['BEACHCOMB','Search for shells',3,0.8],['RELAX','Sit together by the water',4,1.2]]},
+ forest:{name:'Forest',icon:'♣',desc:'Old trees, winding trails and hidden clearings.',happy:7,bond:3,acts:[
+  ['EXPLORE TRAIL','See where the path leads',4,1.0],['TRACK SCENTS','Let your Petling investigate',4,0.9],['CLIMB','Scramble over roots and rocks',5,0.7],['PICNIC','Share a quiet woodland break',4,1.2]]},
+ carnival:{name:'Carnival',icon:'★',desc:'Lights, games, music and strange prizes.',happy:10,bond:2,acts:[
+  ['PLAY A GAME','Try a carnival stall',5,0.8],['RIDE','Go on a little fairground ride',6,0.7],['WIN A PRIZE','Try your luck together',4,1.0],['WATCH LIGHTS','Take in the carnival',4,1.1]]},
+ zoo:{name:'Zoo',icon:'Z',desc:'A full afternoon watching unfamiliar creatures.',happy:8,bond:2.5,acts:[
+  ['SEE BIG ANIMALS','Visit the largest enclosures',5,0.8],['AQUARIUM HOUSE','Watch the underwater exhibits',4,0.9],['FEEDING TIME','Watch the keepers',5,0.8],['REST BENCH','People-watch together',3,1.1]]},
+ park:{name:'Park',icon:'♧',desc:'Open grass, paths, ponds and plenty of room to play.',happy:7,bond:3.5,acts:[
+  ['PLAY FETCH','Burn off some energy',6,0.9],['POND WALK','Wander around the water',4,1.0],['ROLL IN GRASS','Let your Petling be ridiculous',6,0.7],['SIT TOGETHER','Spend some quiet time together',3,1.4]]},
+ tavern:{name:'Tavern',icon:'T',desc:'A warm old tavern for mature Petlings.',happy:7,bond:4,adult:true,acts:[
+  ['SHARE A MEAL','Order something Petling-safe',5,1.2],['LISTEN TO MUSIC','Stay for the bard',4,1.0],['MEET LOCALS','Socialise by the fire',4,1.1],['FIRESIDE REST','Doze beside the hearth',3,1.5]]}
+};
+function dayOutKey(){return dayKey(Date.now())}
+function ensureDayOut(){
+ if(!state.dayOut)state.dayOut={day:null,place:null,start:0,end:0,activities:[],completed:false,rewarded:false,log:[]};
+ const d=state.dayOut,today=dayOutKey();
+ if(d.day&&d.day!==today){
+   // Yesterday never carries over. It remains only as a memory/log entry.
+   state.dayOut={day:null,place:null,start:0,end:0,activities:[],completed:false,rewarded:false,log:[]};
+ }
+ return state.dayOut;
+}
+function dayOutActive(){const d=ensureDayOut();return !!(d.day===dayOutKey()&&d.place&&!d.completed&&Date.now()<d.end)}
+function dayOutUsedToday(){const d=ensureDayOut();return d.day===dayOutKey()&&!!d.place}
+function dayOutTavernUnlocked(){return (state.formStage||0)>=3}
+function dayOutStatus(){
+ const d=ensureDayOut();
+ if(!dayOutUsedToday())return 'Choose one destination. Your Day Out lasts one hour.';
+ if(dayOutActive())return `${state.name} is currently out at the ${DAYOUT_PLACES[d.place].name}.`;
+ return `Today's Day Out to the ${DAYOUT_PLACES[d.place].name} is complete. Another is available tomorrow.`;
+}
+function openDayOutHub(){
+ if(guardAsleep()||guardSick()||guardAtSpring())return;
+ const d=ensureDayOut();
+ if(dayOutActive()){renderDayOut();return}
+ if(dayOutUsedToday()){dayOutFinish();renderDayOut();return}
+ const div=document.createElement('div');div.className='overlay-panel pop-in';div.id='mg-overlay';
+ div.innerHTML=`<button class="overlay-close" onclick="closeOverlay()">×</button><div class="overlay-title">DAY OUT</div>
+ <div class="dayout-shell"><div class="dayout-status">${dayOutStatus()}</div><div class="dayout-grid">
+ ${Object.entries(DAYOUT_PLACES).map(([id,p])=>{const lock=p.adult&&!dayOutTavernUnlocked();const click=lock?`showToast('Tavern unlocks at Adult stage.')`:`chooseDayOut('${id}')`;return `<button class="dayout-place ${lock?'disabled':''}" onclick="${click}"><span class="dp-icon">${p.icon}</span><div class="dp-name">${p.name.toUpperCase()}</div><div class="dp-desc">${p.desc}</div>${lock?'<span class="dp-lock">ADULT+</span>':''}</button>`}).join('')}
+ </div><div class="battle-log" style="margin-top:9px;">You can take ${state.name} on one Day Out per real calendar day. Once you leave, that destination is your outing for today.</div></div>`;
+ openOverlay(div);
+}
+function chooseDayOut(id){
+ const p=DAYOUT_PLACES[id],d=ensureDayOut();if(!p||dayOutUsedToday())return;
+ if(p.adult&&!dayOutTavernUnlocked()){showToast('The Tavern unlocks at Adult stage.');return}
+ const now=Date.now();state.dayOut={day:dayOutKey(),place:id,start:now,end:now+DAYOUT_DURATION,activities:[],completed:false,rewarded:false,log:[`You and ${state.name} arrived at the ${p.name}.`]};
+ state.happiness=clamp(state.happiness+3,0,100);state.bondMeter=clamp((state.bondMeter||0)+0.5,0,100);
+ addPetMemory(`Went to the ${p.name} with you for a Day Out.`,'dayout_'+dayOutKey());
+ recordHabit('play');pushLog(`Day Out: ${p.name}.`);saveState();renderDayOut();
+}
+function dayOutRemaining(){const d=ensureDayOut();return Math.max(0,d.end-Date.now())}
+function dayOutFmt(ms){const m=Math.ceil(ms/60000);return m>1?`${m} MINUTES REMAINING`:`LESS THAN A MINUTE REMAINS`}
+function dayOutPetMarkup(){
+ try{
+   if(typeof petSpriteHTML==='function')return petSpriteHTML();
+ }catch(e){}
+ return `<div style="font:30px var(--font-display);color:#eee">${String(state.name||'PET').slice(0,1)}</div>`;
+}
+
+function dayOutIsNight(){
+ const h=new Date().getHours();
+ return h<7||h>=18;
+}
+function dayOutBackground(place){
+ if(place==='tavern')return 'assets/day-outs/tavern.png';
+ return `assets/day-outs/${place}-${dayOutIsNight()?'night':'day'}.png`;
+}
+
+function renderDayOut(){
+ const d=ensureDayOut();if(!d.place){openDayOutHub();return}
+ if(Date.now()>=d.end&&!d.completed)dayOutFinish();
+ const p=DAYOUT_PLACES[d.place],active=!d.completed&&Date.now()<d.end,rem=dayOutRemaining(),pct=Math.max(0,Math.min(100,rem/DAYOUT_DURATION*100));
+ const div=document.createElement('div');div.className='overlay-panel pop-in';div.id='mg-overlay';
+ div.innerHTML=`<button class="overlay-close" onclick="closeOverlay()">×</button><div class="overlay-title">DAY OUT — ${p.name.toUpperCase()}</div><div class="dayout-shell"><div class="dayout-card">
+ <div class="dayout-scene ${d.place}" style="background-image:url('${dayOutBackground(d.place)}')"><div class="dayout-place-title">${p.name.toUpperCase()}</div><div class="dayout-pet">${dayOutPetMarkup()}</div></div>
+ <div class="dayout-timer">${active?dayOutFmt(rem):'TODAY’S DAY OUT IS COMPLETE'}<div class="dayout-bar"><i style="width:${active?pct:0}%"></i></div></div>
+ ${active?`<div class="dayout-activities">${p.acts.map((a,i)=>`<button class="dayout-act" onclick="doDayOutActivity(${i})" ${d.activities.includes(i)?'disabled':''}>${a[0]}<small>${a[1]}</small></button>`).join('')}</div>`:
+ `<div class="quest-result"><b>A GOOD DAY OUT</b><br><br>${state.name} looks happier after spending the time with you.<br><br>Come back tomorrow for another destination.</div>`}
+ <div class="dayout-log">${d.log.slice(-3).join('<br>')}</div></div></div>`;
+ const old=document.getElementById('mg-overlay');if(old)old.replaceWith(div);else openOverlay(div);
+ if(active){clearTimeout(window._dayOutRefresh);window._dayOutRefresh=setTimeout(()=>{if(document.getElementById('mg-overlay'))renderDayOut()},30000)}
+}
+
+const DAYOUT_GAME_TYPES={
+ beach:['wavehop','sandstack','shellmatch','breath'],
+ forest:['trail','scent','climb','picnic'],
+ carnival:['target','ride','prize','lights'],
+ zoo:['spot','fish','feed','watch'],
+ park:['fetch','pond','grass','quiet'],
+ tavern:['meal','rhythm','chat','fire']
+};
+let dayOutGame=null;
+function doDayOutActivity(i){
+ const d=ensureDayOut();if(!dayOutActive())return renderDayOut();
+ const p=DAYOUT_PLACES[d.place],a=p.acts[i];if(!a||d.activities.includes(i))return;
+ launchDayOutGame(d.place,i,a);
+}
+function launchDayOutGame(place,i,a){
+ dayOutGame={place,i,a,score:0,step:0,lives:3,start:Date.now(),data:{},done:false};
+ renderDayOutGame();
+}
+function dogRand(n){return Math.floor(Math.random()*n)}
+function dogBtn(label,fn,extra=''){return `<button class="dayout-act" style="${extra}" onclick="${fn}">${label}</button>`}
+function renderDayOutGame(){
+ const g=dayOutGame;if(!g)return renderDayOut();
+ const names={
+ wavehop:'WAVE HOP',sandstack:'SANDCASTLE STACK',shellmatch:'SHELL MATCH',breath:'SUNSET BREATH',
+ trail:'TRAIL CHOICE',scent:'SCENT TRACKER',climb:'ROOT CLIMB',picnic:'PICNIC PACK',
+ target:'RING TOSS',ride:'RIDE BALANCE',prize:'PRIZE CLAW',lights:'LIGHT MEMORY',
+ spot:'ANIMAL SPOTTER',fish:'AQUARIUM FOLLOW',feed:'FEEDING SORT',watch:'KEEPER WATCH',
+ fetch:'FETCH CATCH',pond:'LILY HOP',grass:'ROLL-O-METER',quiet:'QUIET TOGETHER',
+ meal:'TAVERN PLATE',rhythm:'BARD RHYTHM',chat:'LOCAL CHAT',fire:'FIRESIDE STORY'
+ };
+ const type=DAYOUT_GAME_TYPES[g.place][g.i];
+ const div=document.createElement('div');div.className='overlay-panel pop-in';div.id='mg-overlay';
+ div.innerHTML=`<button class="overlay-close" onclick="dayOutGame=null;renderDayOut()">×</button><div class="overlay-title">${names[type]}</div>
+ <div class="dayout-shell"><div class="dayout-card"><div id="dog-board" style="min-height:270px"></div>
+ <div class="dayout-log">Score: <b id="dog-score">${g.score}</b> · ${g.a[1]}</div></div></div>`;
+ const old=document.getElementById('mg-overlay');if(old)old.replaceWith(div);else openOverlay(div);
+ renderDOGBoard(type);
+}
+function dogScore(n){dayOutGame.score+=n;const e=document.getElementById('dog-score');if(e)e.textContent=dayOutGame.score}
+function dogFinish(success=true,msg=''){
+ const g=dayOutGame;if(!g||g.done)return;g.done=true;
+ const d=ensureDayOut(),p=DAYOUT_PLACES[g.place],a=g.a;
+ const quality=Math.max(.65,Math.min(1.35,.65+g.score/100));
+ d.activities.push(g.i);
+ state.happiness=clamp(state.happiness+Math.round(a[2]*quality),0,100);
+ state.bondMeter=clamp((state.bondMeter||0)+a[3]*quality,0,100);
+ state.energy=clamp(state.energy-2,0,100);
+ d.log.push(msg||`${state.name} had fun playing ${a[0].toLowerCase()} with you.`);
+ saveState();
+ const b=document.getElementById('dog-board');
+ if(b)b.innerHTML=`<div class="quest-result"><b>${success?'NICE ONE!':'ALL DONE!'}</b><br><br>${msg||`${state.name} looks delighted.`}<br><br>Score: ${g.score}<br><br>${dogBtn('BACK TO DAY OUT','dayOutGame=null;renderDayOut()')}</div>`;
+}
+function dogProgress(target,msg){dayOutGame.step++;if(dayOutGame.step>=target)dogFinish(true,msg);else renderDayOutGame()}
+function renderDOGBoard(t){
+ const g=dayOutGame,b=document.getElementById('dog-board');if(!b)return;
+ const pet=`<div style="font:10px var(--font-display);color:#d9b77d;margin-bottom:9px">${state.name.toUpperCase()}</div>`;
+ if(t==='wavehop'){
+   const safe=dogRand(3);g.data.safe=safe;b.innerHTML=pet+`<p>Jump when the wave reaches the safe patch. Pick the calm gap.</p><div class="dayout-activities">${[0,1,2].map(x=>dogBtn(['LEFT','MIDDLE','RIGHT'][x],`dogChoice(${x},${safe},5)`)).join('')}</div><p>Wave ${g.step+1}/5</p>`;
+ }else if(t==='sandstack'){
+   const width=Math.max(25,80-g.step*8),pos=dogRand(70);g.data.pos=pos;b.innerHTML=pet+`<p>Stack five sandcastle layers. Hit DROP while the moving block is near the centre.</p><div style="height:120px;position:relative;border-bottom:3px solid #b99b62"><i style="position:absolute;left:${pos}%;top:20px;width:${width}px;height:18px;background:#d6bc7c"></i></div>${dogBtn('DROP','dogTiming()')}<p>Layer ${g.step+1}/5</p>`;
+ }else if(t==='shellmatch'){
+   if(!g.data.seq)g.data.seq=Array.from({length:4},()=>dogRand(4));const want=g.data.seq[g.step];b.innerHTML=pet+`<p>Remember the shell trail: ${g.data.seq.map((x,i)=>i<=g.step?'?':'·').join(' ')}</p><div class="dayout-activities">${['SPIRAL','STRIPED','PEARL','STAR'].map((x,i)=>dogBtn(x,`dogChoice(${i},${want},4)`)).join('')}</div><small>Hint: ${['Spiral','Striped','Pearl','Star'][want]} flashed in the sand.</small>`;
+ }else if(t==='breath'){
+   b.innerHTML=pet+`<p>Relax together. Keep the breathing marker in the calm zone for four breaths.</p><div class="dayout-bar" style="height:18px"><i style="width:${25+g.step*18}%"></i></div>${dogBtn(g.step%2?'BREATHE OUT':'BREATHE IN',`dogProgress(4,'You and ${state.name} settle into the sound of the sea.')`)}`;
+ }else if(t==='trail'){
+   const good=dogRand(3);b.innerHTML=pet+`<p>The forest path forks. Read the signs and choose the safest trail.</p><div class="dayout-activities">${['MOSSY PATH','SUNLIT PATH','CREEK PATH'].map((x,i)=>dogBtn(x,`dogChoice(${i},${good},5)`)).join('')}</div><small>${['Fresh pawprints avoid the creek.','Broken twigs point toward sunlight.','The moss is disturbed on one side.'][good]}</small>`;
+ }else if(t==='scent'){
+   const good=dogRand(4);b.innerHTML=pet+`<p>${state.name} catches a scent. Which direction gets stronger?</p><div class="dayout-activities">${['NORTH','EAST','SOUTH','WEST'].map((x,i)=>dogBtn(x,`dogChoice(${i},${good},5)`)).join('')}</div><small>The scent meter flickers strongest toward ${['north','east','south','west'][good]}.</small>`;
+ }else if(t==='climb'){
+   b.innerHTML=pet+`<p>Climb the old roots. Alternate paws without slipping.</p><div class="dayout-activities">${dogBtn('LEFT PAW',`dogAlternate(0)`)}${dogBtn('RIGHT PAW',`dogAlternate(1)`)}</div><p>Height ${g.step}/8</p>`;
+ }else if(t==='picnic'){
+   if(!g.data.want)g.data.want=['WATER','FRUIT','NAPKIN','TREAT'].sort(()=>Math.random()-.5);const want=g.data.want[g.step];b.innerHTML=pet+`<p>Pack the picnic in the right order.</p><div class="dayout-activities">${['WATER','FRUIT','NAPKIN','TREAT'].map(x=>dogBtn(x,`dogWord('${x}','${want}',4)`)).join('')}</div><small>Next: ${want.toLowerCase()}</small>`;
+ }else if(t==='target'){
+   const target=dogRand(5);b.innerHTML=pet+`<p>Ring toss! Pick the bottle the ring is lined up with.</p><div class="dayout-activities">${[1,2,3,4,5].map((x,i)=>dogBtn(String(x),`dogChoice(${i},${target},6)`)).join('')}</div><small>The crosshair is over bottle ${target+1}.</small>`;
+ }else if(t==='ride'){
+   const dir=dogRand(2);b.innerHTML=pet+`<p>The ride lurches ${dir?'right':'left'}! Lean the other way to keep ${state.name} balanced.</p><div class="dayout-activities">${dogBtn('LEAN LEFT',`dogChoice(0,${dir?0:1},6)`)}${dogBtn('LEAN RIGHT',`dogChoice(1,${dir?0:1},6)`)}</div>`;
+ }else if(t==='prize'){
+   const pos=dogRand(5);b.innerHTML=pet+`<p>Line up the claw over the prize.</p><div style="letter-spacing:18px;font-size:25px;text-align:center">· · · · ·</div><div class="dayout-activities">${[1,2,3,4,5].map((x,i)=>dogBtn('▼',`dogChoice(${i},${pos},4)`)).join('')}</div><small>The prize twinkles beneath slot ${pos+1}.</small>`;
+ }else if(t==='lights'){
+   if(!g.data.seq)g.data.seq=Array.from({length:5},()=>dogRand(4));const want=g.data.seq[g.step];b.innerHTML=pet+`<p>Repeat the carnival light sequence.</p><div class="dayout-activities">${['RED','BLUE','GOLD','GREEN'].map((x,i)=>dogBtn(x,`dogChoice(${i},${want},5)`)).join('')}</div><small>Flash ${g.step+1}: ${['red','blue','gold','green'][want]}</small>`;
+ }else if(t==='spot'){
+   const animal=dogRand(4);b.innerHTML=pet+`<p>Spot the animal described by the keeper.</p><small>${['Long neck, tallest in the enclosure.','Black and white stripes.','Huge ears and a trunk.','Sleeps high in the branches.'][animal]}</small><div class="dayout-activities">${['GIRAFFE','ZEBRA','ELEPHANT','SLOTH'].map((x,i)=>dogBtn(x,`dogChoice(${i},${animal},5)`)).join('')}</div>`;
+ }else if(t==='fish'){
+   const dir=dogRand(3);b.innerHTML=pet+`<p>Follow the bright aquarium fish without losing it.</p><div style="font-size:35px;text-align:${['left','center','right'][dir]}">><</div><div class="dayout-activities">${['LEFT','CENTRE','RIGHT'].map((x,i)=>dogBtn(x,`dogChoice(${i},${dir},6)`)).join('')}</div>`;
+ }else if(t==='feed'){
+   const animal=dogRand(3);b.innerHTML=pet+`<p>Help sort the keeper's food.</p><b>${['MONKEY','PENGUIN','TORTOISE'][animal]}</b><div class="dayout-activities">${['FRUIT','FISH','LEAVES'].map((x,i)=>dogBtn(x,`dogChoice(${i},${animal},6)`)).join('')}</div>`;
+ }else if(t==='watch'){
+   b.innerHTML=pet+`<p>Watch quietly during the keeper talk. Tap only when the animal icon appears.</p><div style="font-size:42px;text-align:center">${g.step%2?'...':'PAW!'}</div>${dogBtn(g.step%2?'WAIT':'SPOT IT!',`dogProgress(5,'You and ${state.name} catch every interesting moment.')`)}`;
+ }else if(t==='fetch'){
+   const lane=dogRand(3);b.innerHTML=pet+`<p>Catch the returning ball!</p><div style="font-size:28px;text-align:${['left','center','right'][lane]}">●</div><div class="dayout-activities">${['LEFT','MIDDLE','RIGHT'].map((x,i)=>dogBtn(x,`dogChoice(${i},${lane},7)`)).join('')}</div>`;
+ }else if(t==='pond'){
+   const pad=dogRand(4);b.innerHTML=pet+`<p>Guide ${state.name} across the lily pads. One is sturdy.</p><div class="dayout-activities">${[1,2,3,4].map((x,i)=>dogBtn('PAD '+x,`dogChoice(${i},${pad},6)`)).join('')}</div><small>Ripples are calmest around pad ${pad+1}.</small>`;
+ }else if(t==='grass'){
+   b.innerHTML=pet+`<p>${state.name} wants the perfect grass roll. Build the silliness meter!</p><div class="dayout-bar" style="height:18px"><i style="width:${Math.min(100,g.step*14)}%"></i></div>${dogBtn('ROLL!','dogProgress(7,`'+state.name+' finishes absolutely covered in grass.`)')}`;
+ }else if(t==='quiet'){
+   b.innerHTML=pet+`<p>A tiny bonding game: match ${state.name}'s mood rather than rushing.</p><div class="dayout-activities">${dogBtn('PET GENTLY',`dogCalm(0)`)}${dogBtn('SIT QUIETLY',`dogCalm(1)`)}</div><small>${g.step%2?'They lean closer. Give them a gentle pet.':'They seem peaceful. Just sit with them.'}</small>`;
+ }else if(t==='meal'){
+   const want=dogRand(3);b.innerHTML=pet+`<p>Build a Petling-safe tavern plate.</p><div class="dayout-activities">${['HEARTY','LIGHT','CRUNCHY'].map((x,i)=>dogBtn(x,`dogChoice(${i},${want},5)`)).join('')}</div><small>${state.name} seems in the mood for something ${['hearty','light','crunchy'][want]}.</small>`;
+ }else if(t==='rhythm'){
+   const beat=dogRand(3);b.innerHTML=pet+`<p>Keep time with the bard.</p><div style="text-align:center;font-size:22px">${['♪ · ·','· ♪ ·','· · ♪'][beat]}</div><div class="dayout-activities">${['ONE','TWO','THREE'].map((x,i)=>dogBtn(x,`dogChoice(${i},${beat},8)`)).join('')}</div>`;
+ }else if(t==='chat'){
+   const mood=dogRand(3);b.innerHTML=pet+`<p>A local starts chatting. Pick the response that suits their mood.</p><small>${['They are boasting about a huge fish.','They look worried about tomorrow.','They tell a terrible joke and wait.'][mood]}</small><div class="dayout-activities">${['ASK FOR DETAILS','REASSURE THEM','LAUGH'].map((x,i)=>dogBtn(x,`dogChoice(${i},${mood},5)`)).join('')}</div>`;
+ }else if(t==='fire'){
+   b.innerHTML=pet+`<p>Build a little fireside story together. Choose what happens next.</p><div class="dayout-activities">${['A DRAGON APPEARS','A SECRET DOOR OPENS','A GHOST SINGS','TREASURE!'].map((x,i)=>dogBtn(x,`dogStory('${x}')`)).join('')}</div><p>Story beats: ${g.step}/4</p>`;
+ }
+}
+function dogChoice(choice,want,target){
+ if(choice===want){dogScore(18);dogProgress(target,`${state.name} loved that game.`)}
+ else{dayOutGame.lives--;dogScore(4);if(dayOutGame.lives<=0)dogFinish(false,`${state.name} still had fun, even if it got a little chaotic.`);else renderDayOutGame()}
+}
+function dogWord(x,want,target){dogChoice(x,want,target)}
+function dogTiming(){const p=dayOutGame.data.pos,good=Math.abs(p-45)<24;if(good){dogScore(20);dogProgress(5,'Your sandcastle survives the final layer!')}else{dogScore(5);dayOutGame.step++;if(dayOutGame.step>=5)dogFinish(false,'The sandcastle is wonky, but you both seem proud of it.');else renderDayOutGame()}}
+function dogAlternate(side){const want=dayOutGame.step%2;if(side===want){dogScore(12);dogProgress(8,`${state.name} reaches the top of the roots.`)}else{dogScore(2);renderDayOutGame()}}
+function dogCalm(choice){const want=dayOutGame.step%2?0:1;if(choice===want){dogScore(18);dogProgress(5,`You and ${state.name} share a genuinely peaceful moment.`)}else{dogScore(3);renderDayOutGame()}}
+function dogStory(x){dayOutGame.data.story=(dayOutGame.data.story||[]).concat(x);dogScore(15);dayOutGame.step++;if(dayOutGame.step>=4)dogFinish(true,`${state.name} listens to your ridiculous story all the way to the end.`);else renderDayOutGame()}
+window.dogChoice=dogChoice;window.dogWord=dogWord;window.dogTiming=dogTiming;window.dogAlternate=dogAlternate;window.dogCalm=dogCalm;window.dogStory=dogStory;
+
+function dayOutFinish(){
+ const d=ensureDayOut();if(!d.place||d.completed)return;
+ if(Date.now()<d.end)return;
+ const p=DAYOUT_PLACES[d.place];d.completed=true;
+ if(!d.rewarded){
+   const participation=Math.min(1,d.activities.length/3);
+   const happy=Math.round(p.happy*(0.65+0.35*participation));
+   const bond=p.bond*(0.65+0.35*participation);
+   state.happiness=clamp(state.happiness+happy,0,100);state.bondMeter=clamp((state.bondMeter||0)+bond,0,100);
+   d.rewarded=true;d.log.push(`The outing ends. +${happy} happiness and +${bond.toFixed(1)} bond.`);
+   pushLog(`${p.name} Day Out complete. ${state.name} had a good time.`);
+ }
+ saveState();
+}
+window.openDayOutHub=openDayOutHub;window.chooseDayOut=chooseDayOut;window.doDayOutActivity=doDayOutActivity;
+
 function openBattleHub(){
   if (guardAsleep()) return;
   if (guardSick()) return;
@@ -11474,6 +11734,7 @@ function render(){
     ${evolveReadyNow() && !busy ? `<button class="evolve-ready-btn" onclick="confirmEvolution()">✦ READY TO EVOLVE ✦</button>` : ''}
     <button class="adventure-btn" onclick="openBattleHub()" ${busy?'disabled':''}>⚔ BATTLE</button>
     <button class="garden-btn" onclick="window.openGarden()">🌱 THE GARDEN</button>
+    <button class="garden-btn" onclick="openDayOutHub()">☀ DAY OUT</button>
     <button class="aquarium-btn" onclick="openAquarium()">🐟 THE AQUARIUM</button>
     <button class="casino-btn" onclick="openCasino()">◎ THE CASINO</button>
     <div class="log">${state.log.map(l=>`<div>${l}</div>`).join('')}</div>
