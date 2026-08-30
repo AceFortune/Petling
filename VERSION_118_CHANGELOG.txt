@@ -1,0 +1,14 @@
+PETLING FIX 118 — PRAISE FATIGUE & COOLDOWN
+
+- Praise can no longer be spammed for easy Happiness/Bond gains.
+- Praise is meaningful up to 3 times in a short praise session.
+- The first praise gives the full existing reward.
+- The second praise gives reduced Happiness/Bond.
+- The third praise gives only a small reward and then triggers praise fatigue.
+- After praise fatigue begins, praise has no Happiness, Bond or Affection reward for 30 minutes.
+- Once the cooldown expires, praise becomes meaningful again.
+- If more than 10 minutes passes between praise attempts before the limit is reached, the short-session praise count resets.
+- The Petling gives contextual feedback as praise becomes less meaningful.
+- Praise fatigue/cooldown persists through saving and reloading, preventing refresh exploits.
+- Existing praise animation and Petling roam-position preservation remain intact.
+- Existing Fix 117 Discipline/Spoiling, Fix 116 Health Balance, Penny Pusher, Day Outs, Quest Director and all prior systems are preserved.

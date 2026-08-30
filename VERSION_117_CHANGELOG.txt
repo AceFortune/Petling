@@ -1,0 +1,23 @@
+PETLING FIX 117 — DISCIPLINE VS SPOILING
+
+- Reworked random Petling demands into a genuine choice system.
+- When the attention/scold prompt appears, the player now gets two options: SCOLD or GIVE IN.
+- SCOLD:
+  - immediately lowers happiness and slightly lowers bond;
+  - makes the Petling visibly sulk for about 15 minutes;
+  - raises long-term Discipline;
+  - lowers Spoiled behaviour;
+  - makes future unnecessary demands less frequent.
+- GIVE IN:
+  - immediately gives the Petling what it asked for (food, petting or play);
+  - boosts happiness and appropriate bond/care stats;
+  - raises long-term Spoiled behaviour;
+  - slightly lowers Discipline;
+  - makes future demands increasingly frequent.
+- Added persistent Discipline and Spoiled values to saves, with backwards-compatible migration.
+- Demand frequency is now dynamically calculated from Discipline vs Spoiled state, ranging from very occasional in a well-behaved Petling to much more frequent in a heavily spoiled one.
+- Directly satisfying an existing demand via the normal Feed/Pet/Play routes also teaches the Petling that demanding works, so the system cannot be bypassed.
+- Mood text now reflects sulking, demanding, spoiled and well-behaved states.
+- Main Petling substatus now shows a simple long-term behaviour label: BALANCED, SPOILED or WELL-BEHAVED.
+- This system affects behaviour, not health/death mechanics.
+- All Fix 116 health balancing, Fix 115 Penny Pusher work, Day Outs, Quest Director and prior systems are preserved.

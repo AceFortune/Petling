@@ -1,0 +1,12 @@
+PETLING FIX 115 — PENNY PUSHER TIMING & ALIGNMENT
+- Coin drops are much faster, closer to the snap/drop of a real arcade penny pusher.
+- Drop timing now matters: dropping while the pusher is advancing, especially later in its forward stroke, gives the newly landed penny substantially more useful insertion pressure.
+- Mistimed drops settle with very little force and must wait to be physically caught by the next pusher stroke.
+- Increased pusher cycle speed slightly so timing feels responsive rather than waiting on a slow animation.
+- Rebuilt the pusher collision geometry around the exact visible front face of the metal block.
+- The visible pusher's translated front edge and the physics contact line now use the same pusher position, so pennies no longer appear to be pushed by an invisible/misaligned block.
+- Changed the pusher artwork proportions so its visible front plate sits directly behind the rear row of pennies.
+- Force only enters coins that the advancing pusher actually contacts, then propagates through genuine coin-to-coin contact chains.
+- Preserved the Fix 105 rule that the board cannot self-pay without real player-created pressure.
+- Added a short timing hint beneath the controls.
+- All Fix 114 startup/dream changes and the rest of the full project are preserved.

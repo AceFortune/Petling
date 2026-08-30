@@ -1,0 +1,9 @@
+PETLING FIX 114 — DREAM STARTUP BLANK-SCREEN FIX
+- Fixed the long blank screen that could occur when launching after a Petling had slept and had a dream/morning event waiting.
+- The saved Petling screen is now rendered BEFORE absence simulation, evolution checks, return-from-absence processing, dream presentation, weather work or other non-essential startup tasks.
+- Offline/catch-up simulation now runs after first paint using requestIdleCallback when available, with a safe timeout fallback.
+- Morning Dream/Gift presentation is scheduled after the game is visibly rendered instead of participating in startup.
+- Replaced the morning-surprise recursive requestAnimationFrame/setTimeout retry chain with one bounded scheduler so retries cannot stack while #app is empty.
+- Added an immediate lightweight “WAKING YOUR PETLING…” startup shell during storage retrieval, so even slow device/browser storage cannot present a blank page.
+- The catch-up simulation still runs and saves exactly as before; this changes startup ordering, not care/stat progression.
+- Fix 113 Day Out artwork, all 24 Day Out minigames, Fix 110 Penny Pusher and Quest Director systems are preserved.

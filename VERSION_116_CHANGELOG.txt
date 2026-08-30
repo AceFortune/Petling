@@ -1,0 +1,13 @@
+PETLING FIX 116 — HEALTH & OVERNIGHT SURVIVAL BALANCE
+
+- Reduced starvation health drain from 5.0/hour to 3.5/hour.
+- Reduced severe hygiene/full-poop health drain from about 3.33/hour to about 2.22/hour.
+- Reduced exhaustion health drain from 2.5/hour to 1.5/hour.
+- Reduced untreated sickness drain from 1.4/hour to 0.9/hour.
+- Slightly softened extreme-weight and fragile-start health penalties.
+- While asleep, all negative health drain is multiplied by 0.55.
+- This makes sleep behave more like a protected recovery period while preserving consequences for prolonged neglect.
+- Added a small wake-up safety floor: if the Petling survives the night but would wake below 8 health, it wakes at 8 health rather than being effectively doomed immediately.
+- Healthy regeneration remains unchanged.
+- Death and neglect mechanics remain active; this is a balance adjustment, not invulnerability.
+- Fix 115 Penny Pusher timing/alignment, Fix 114 startup changes, Day Out systems and all prior content are preserved.
