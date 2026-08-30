@@ -1,0 +1,14 @@
+PETLING FIX 123 — DAY OUT BLANK SCREEN & PET SPRITE FIX
+
+- Fixed the Day Out location screen appearing blank after the full-screen background redesign.
+- Day Out artwork is no longer applied as a CSS background on the generic overlay element.
+- Each location now renders its supplied artwork as a dedicated full-screen image layer.
+- The image uses object-fit: contain, so the entire Beach/Forest/Carnival/Zoo/Park/Tavern artwork remains visible without cropping or zooming.
+- Added final high-specificity Day Out layout rules after the game's older overlay CSS so legacy/mobile overlay rules cannot override the full-screen presentation.
+- Fixed the large single letter appearing in the middle of the Day Out screen.
+- Root cause of the letter: dayOutPetMarkup() attempted to call a petSpriteHTML() helper that does not exist in this build, then deliberately fell back to displaying the first letter of the Petling's name.
+- Day Out now uses the game's real currentSpriteSrc() function and displays the actual current Petling sprite.
+- Removed the giant-letter fallback entirely.
+- Day Out controls remain layered above the artwork and the Petling sprite.
+- Fix 122's repaired 24 Day Out minigames are preserved.
+- Fix 121's full-screen design intent, Fix 119's hijack protection, and all prior systems are preserved.
