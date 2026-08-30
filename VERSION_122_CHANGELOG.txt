@@ -1,0 +1,51 @@
+PETLING FIX 122 — DAY OUT MINIGAME REPAIR
+
+Full audit and rebuild of all 24 Day Out activity minigames.
+
+CORE FIXES
+- Replaced fragile inline onclick JavaScript strings with a single safe event-delegation system.
+- Buttons now use encoded action data and a controlled dispatcher instead of executing hand-built JavaScript text.
+- This fixes activities silently doing nothing when names/messages/quotes produced malformed inline handlers.
+- Added game/type validation, duplicate-finish protection, timer cleanup, score/lives UI updates and a reliable Back to Day Out action.
+- Wrong answers now consistently cost lives and every activity has a reachable completion path.
+- Day Out minigame timers are cleaned up whenever a game ends or is closed.
+
+BEACH
+- Wave Hop: working lane choices and progress.
+- Sandcastle Stack: rebuilt as an actual moving timing bar; DROP now judges the live block position.
+- Shell Match: working four-round matching.
+- Sunset Breath: working four-step inhale/exhale sequence.
+
+FOREST
+- Trail Choice: working clue/route choices.
+- Scent Tracker: working directional choices.
+- Root Climb: working alternating-paw sequence.
+- Picnic Pack: fixed string-choice handling and progression.
+
+CARNIVAL
+- Ring Toss: working target selection.
+- Ride Balance: working opposite-direction balance logic.
+- Prize Claw: working slot selection.
+- Light Memory: working five-step colour sequence.
+
+ZOO
+- Animal Spotter: working clue matching.
+- Aquarium Follow: repaired malformed fish display markup and lane selection.
+- Feeding Sort: working animal/food matching.
+- Keeper Watch: rebuilt so SPOT IT vs WAIT is a real correct/incorrect decision instead of both buttons effectively progressing.
+
+PARK
+- Fetch Catch: working lane catch.
+- Lily Hop: working pad selection.
+- Roll-o-Meter: fixed the malformed nested-template onclick that could break this game completely.
+- Quiet Together: working alternating mood response.
+
+TAVERN
+- Tavern Plate: working meal choice.
+- Bard Rhythm: working beat matching.
+- Local Chat: working conversational response choice.
+- Fireside Story: working four-choice story progression without quote-sensitive inline handlers.
+
+- All Day Out rewards, one-use-per-activity rules and one-hour outing rules remain unchanged.
+- Fix 121 full-screen Day Out backgrounds and Fix 119 screen-hijack protection remain intact.
+- Fix 120 incubation, Fix 118 praise fatigue, Fix 117 behaviour and all prior systems are preserved.

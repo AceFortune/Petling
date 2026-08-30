@@ -1,0 +1,12 @@
+PETLING FIX 121 — FULL-SCREEN DAY OUT BACKGROUNDS
+
+- Reworked the main Day Out location screen so Beach, Forest, Carnival, Zoo, Park and Tavern artwork is no longer trapped inside the small 360px scenery viewer.
+- The supplied Day Out artwork now becomes the background of the entire Day Out screen.
+- Background sizing changed from COVER to CONTAIN, so the complete original image is visible rather than being zoomed/cropped.
+- On phone-sized screens the Day Out location view now occupies the full viewport, including removal of the normal rounded inset overlay frame.
+- The Petling is overlaid directly onto the full-screen scenery.
+- Destination title and outing controls now float over the artwork in translucent panels so the scenery remains visible behind the interface.
+- Activity buttons, timer, outing completion, rewards and all 24 Day Out minigames are unchanged.
+- Day/night background selection remains unchanged.
+- Fix 119's Day Out overlay ownership/hijack protection remains active.
+- All Fix 120 incubation changes and prior systems are preserved.

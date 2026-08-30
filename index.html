@@ -2185,6 +2185,89 @@ img,
 .dayout-log{min-height:47px;margin-top:7px;padding:7px;border-radius:6px;background:#121313;color:#a9a39b;font:9px/1.45 var(--font-mono)}
 .dayout-status{font:9px/1.5 var(--font-mono);color:#9d9388;margin:7px 0}
 
+/* ===== Fix 121: full-screen Day Out artwork =====
+   Location artwork now belongs to the entire Day Out screen rather than a
+   cropped 360px viewer. "contain" deliberately shows the complete supplied
+   portrait background with no zoom/cropping. */
+.overlay-panel.dayout-location-screen{
+  background-color:#111 !important;
+  background-position:center center !important;
+  background-size:contain !important;
+  background-repeat:no-repeat !important;
+  padding:12px !important;
+}
+.overlay-panel.dayout-location-screen .overlay-title{
+  position:relative;z-index:3;
+  padding:6px 10px;margin:2px 34px 8px;
+  border-radius:7px;
+  background:rgba(15,14,13,.72);
+  text-shadow:0 1px 2px #000;
+}
+.overlay-panel.dayout-location-screen .overlay-close{
+  z-index:5;
+  color:#eee;
+  text-shadow:0 1px 3px #000;
+}
+.dayout-fullscreen-shell{
+  position:relative;
+  width:min(470px,100%);
+  min-height:calc(100dvh - 86px);
+  margin:0 auto;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  pointer-events:none;
+}
+.dayout-fullstage{
+  position:relative;
+  flex:1 1 auto;
+  min-height:300px;
+}
+.dayout-fullstage .dayout-place-title{
+  top:4px;
+  left:8px;
+  padding:5px 7px;
+  border-radius:5px;
+  background:rgba(15,14,13,.55);
+}
+.dayout-fullstage .dayout-pet{
+  bottom:14%;
+}
+.dayout-full-controls{
+  position:relative;
+  z-index:3;
+  pointer-events:auto;
+  padding:7px;
+  border:1px solid rgba(112,92,77,.85);
+  border-radius:10px;
+  background:rgba(18,17,16,.86);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+  box-shadow:0 2px 12px rgba(0,0,0,.4);
+}
+.dayout-full-controls .dayout-timer{margin-top:0}
+.dayout-full-controls .dayout-log{margin-bottom:0}
+
+@media (max-width:600px){
+  .overlay-panel.dayout-location-screen{
+    top:0 !important;
+    bottom:0 !important;
+    left:0 !important;
+    width:100vw !important;
+    max-width:none !important;
+    height:100dvh !important;
+    transform:none !important;
+    border-radius:0 !important;
+    padding:
+      max(8px,env(safe-area-inset-top))
+      8px
+      max(8px,env(safe-area-inset-bottom)) !important;
+  }
+  .dayout-fullscreen-shell{
+    min-height:calc(100dvh - 72px);
+  }
+}
+
 /* ===== Fix 102: Craps ===== */
 .craps-table{
   width:100%;max-width:430px;margin:8px auto 0;padding:12px 10px 10px;
@@ -3927,25 +4010,61 @@ function revealDream(kind){
 }
 
 /* ================= egg / incubation ================= */
+const EGG_COOL_RATE_PER_SEC = 0.055; // ~3.3 gauge points/minute
+const EGG_HEAT_BOOST = 16;
+
 function advanceEggTemp(toTs){
   if (state.tempLastTick === undefined) state.tempLastTick = state.incubateStart;
-  let cur = state.tempLastTick;
-  if (toTs <= cur){ state.tempLastTick = toTs; return; }
-  const totalSec = (toTs - cur) / 1000;
-  const steps = Math.min(Math.ceil(totalSec / 5), 400); // one gentle drift step per ~5 simulated seconds
-  for (let i=0; i<steps; i++){
-    const pullToCenter = (58 - state.temp) * 0.009; // gentle pull toward a mildly-warm resting point
-    const noise = (Math.random()-0.5) * 4.6; // a bit more lively than before, still manageable
-    state.temp = clamp(state.temp + pullToCenter + noise, 0, 100);
+  const elapsedSec=Math.max(0,(toTs-state.tempLastTick)/1000);
+  if(elapsedSec<=0)return;
+
+  // Fix 120: no randomness. The incubation gauge is a predictable skill loop:
+  // temperature continuously and smoothly falls, and the player times HEAT
+  // pulses to bring it back into the ideal band.
+  state.temp=clamp(state.temp-(EGG_COOL_RATE_PER_SEC*elapsedSec),0,100);
+  state.tempLastTick=toTs;
+
+  // Track actual time spent in the perfect zone for a fairer hatch-quality
+  // measurement. This makes good incubation about maintaining the egg, not
+  // repeatedly tapping a button.
+  if(eggTempInIdealZone(state.temp)){
+    state.idealSeconds=(state.idealSeconds||0)+elapsedSec;
   }
-  state.tempLastTick = toTs;
 }
 function eggCurrentTemp(){
   advanceEggTemp(Date.now());
   return state.temp;
 }
-function eggWarm(){ nudgeEgg(12); }
-function eggCool(){ nudgeEgg(-12); }
+function eggHeat(){
+  if (!state || state.phase !== 'egg') return;
+  advanceEggTemp(Date.now());
+  state.temp=clamp(state.temp+EGG_HEAT_BOOST,0,100);
+
+  const now=Date.now();
+  const inZone=eggTempInIdealZone(state.temp);
+  if(inZone){
+    // Count well-timed corrections, with a small anti-spam interval.
+    if(!state.lastGoodHeatAt || now-state.lastGoodHeatAt>=45000){
+      state.goodChecks=(state.goodChecks||0)+1;
+      state.lastGoodHeatAt=now;
+    }
+    if(!state.eggLog)state.eggLog=[];
+    state.eggLog.unshift('Perfect heat pulse — back in the ideal zone.');
+  }else if(state.temp>EGG_IDEAL_MAX){
+    if(!state.eggLog)state.eggLog=[];
+    state.eggLog.unshift('Too soon — that heat pulse pushed the egg above the ideal zone.');
+  }else{
+    if(!state.eggLog)state.eggLog=[];
+    state.eggLog.unshift('Still chilly — another heat pulse will be needed soon.');
+  }
+  state.eggLog=state.eggLog.slice(0,8);
+  saveState();
+  updateEggScreenDynamic();
+}
+
+// Compatibility aliases for old inline/save-era references.
+function eggWarm(){eggHeat()}
+function eggCool(){ /* Fix 120: manual cooling removed; the gauge cools naturally. */ }
 
 function updateEggScreenDynamic(){
   if (!state || state.phase !== 'egg') return;
@@ -3965,8 +4084,8 @@ function updateEggScreenDynamic(){
   const readout = document.querySelector('.temp-readout');
   if (readout) {
     readout.textContent = inZone
-      ? 'PERFECT — hold it here'
-      : (temp < EGG_IDEAL_MIN ? 'TOO COLD' : 'TOO HOT');
+      ? 'PERFECT — let it slowly cool'
+      : (temp < EGG_IDEAL_MIN ? 'TOO COLD — PRESS HEAT' : 'TOO HOT — WAIT');
   }
 
   const led = document.querySelector('.header .led');
@@ -3986,31 +4105,17 @@ function updateEggScreenDynamic(){
 
   const log = document.querySelector('.log');
   if (log) {
-    const lines = state.eggLog || ['Keep checking in — the egg drifts out of range on its own.'];
+    const lines = state.eggLog || ['The temperature slowly falls. Time HEAT pulses to return it to the perfect zone.'];
     log.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
   }
 
   const footer = document.querySelector('.footer-note');
   if (footer) {
-    footer.textContent = `Good checks so far: ${state.goodChecks||0}/5. Hold the temperature in the ideal zone — a poorly-incubated egg hatches frail, with real lasting effects.`;
+    footer.textContent = `Good heat pulses: ${Math.min(5,state.goodChecks||0)}/5. The gauge always cools at the same rate — wait until it drops, then time HEAT to put it back in the green zone.`;
   }
 }
 
-function nudgeEgg(delta){
-  if (!state || state.phase !== 'egg') return;
-  advanceEggTemp(Date.now()); // catch up on drift first, so the press lands on the current value
-  state.temp = clamp(state.temp + delta, 0, 100);
-  const minuteBucket = Math.floor((Date.now()-state.incubateStart)/60000);
-  if (eggTempInIdealZone(state.temp) && state.lastGoodMinute !== minuteBucket){
-    state.goodChecks = (state.goodChecks||0) + 1;
-    state.lastGoodMinute = minuteBucket;
-    if (!state.eggLog) state.eggLog = [];
-    state.eggLog.unshift('Perfect — right in the zone.');
-    state.eggLog = state.eggLog.slice(0,8);
-  }
-  saveState();
-  updateEggScreenDynamic();
-}
+
 async function hatchEgg(){
   if (!state || state.phase !== 'egg') return;
   render(); // make sure the egg screen (with current wobble state) is on screen
@@ -4112,9 +4217,9 @@ function newEggState(eggId){
   const now = Date.now();
   return {
     phase: 'egg', eggId,
-    incubateStart: now, temp: 50, tempLastTick: now,
-    goodChecks: 0, lastGoodMinute: -1,
-    eggLog: ['Incubation started. Keep the temperature in the marked zone.'],
+    incubateStart: now, temp: 58, tempLastTick: now,
+    goodChecks: 0, lastGoodMinute: -1, lastGoodHeatAt: 0, idealSeconds: 0,
+    eggLog: ['Incubation started. The temperature will slowly fall — use HEAT to bring it back into the marked zone.'],
   };
 }
 
@@ -4237,6 +4342,14 @@ async function loadState(){
         if (state.praiseCount === undefined) state.praiseCount = 0;
         if (state.praiseWindowStarted === undefined) state.praiseWindowStarted = 0;
         if (state.praiseCooldownUntil === undefined) state.praiseCooldownUntil = 0;
+        if(state.phase==='egg'){
+          if(state.lastGoodHeatAt===undefined)state.lastGoodHeatAt=0;
+          if(state.idealSeconds===undefined)state.idealSeconds=0;
+          // Clamp legacy random-drift temperatures so an in-progress old egg
+          // enters the redesigned deterministic game in a recoverable state.
+          state.temp=clamp(state.temp===undefined?58:state.temp,20,72);
+          state.tempLastTick=Date.now();
+        }
         if (state.inventory.snack === undefined) state.inventory.snack = 0;
         if (state.inventory.medicine === undefined) state.inventory.medicine = 0;
         ensureBehaviorState();
@@ -5810,6 +5923,16 @@ function prepareStandardMenuScroller(ov){
 
 function openOverlay(el){
   const existing=document.getElementById('mg-overlay');
+
+  // Fix 119: Day Out owns a 30-second refresh timer. If the player has moved
+  // into fishing, the casino, another minigame, etc., that timer must never be
+  // allowed to repaint over the new screen.
+  const incomingMode=(el&&el.dataset&&el.dataset.mode)||'';
+  if(incomingMode!=='dayout'){
+    clearTimeout(window._dayOutRefresh);
+    window._dayOutRefresh=null;
+  }
+
   document.documentElement.classList.add('petling-menu-open');
   document.body.classList.add('petling-menu-open');
 
@@ -5818,6 +5941,12 @@ function openOverlay(el){
     existing.id='mg-overlay';
     existing.innerHTML=el.innerHTML;
     existing.scrollTop=0;
+
+    // Keep overlay ownership metadata in sync. Previously dataset.mode from the
+    // old screen could survive a content swap because only innerHTML/class were copied.
+    existing.removeAttribute('data-mode');
+    if(incomingMode)existing.dataset.mode=incomingMode;
+
     prepareStandardMenuScroller(existing);
     return existing;
   }
@@ -5838,6 +5967,10 @@ function closeOverlay(force=false){
   if (casinoSessionActive && !force) return;
 
   const ov = document.getElementById('mg-overlay');
+  if(ov && ov.dataset && ov.dataset.mode==='dayout'){
+    clearTimeout(window._dayOutRefresh);
+    window._dayOutRefresh=null;
+  }
   if (ov) ov.remove();
   document.documentElement.classList.remove('petling-menu-open');
   document.body.classList.remove('petling-menu-open');
@@ -10815,7 +10948,7 @@ function openDayOutHub(){
  const d=ensureDayOut();
  if(dayOutActive()){renderDayOut();return}
  if(dayOutUsedToday()){dayOutFinish();renderDayOut();return}
- const div=document.createElement('div');div.className='overlay-panel pop-in';div.id='mg-overlay';
+ const div=document.createElement('div');div.className='overlay-panel pop-in';div.id='mg-overlay';div.dataset.mode='dayout';
  div.innerHTML=`<button class="overlay-close" onclick="closeOverlay()">×</button><div class="overlay-title">DAY OUT</div>
  <div class="dayout-shell"><div class="dayout-status">${dayOutStatus()}</div><div class="dayout-grid">
  ${Object.entries(DAYOUT_PLACES).map(([id,p])=>{const lock=p.adult&&!dayOutTavernUnlocked();const click=lock?`showToast('Tavern unlocks at Adult stage.')`:`chooseDayOut('${id}')`;return `<button class="dayout-place ${lock?'disabled':''}" onclick="${click}"><span class="dp-icon">${p.icon}</span><div class="dp-name">${p.name.toUpperCase()}</div><div class="dp-desc">${p.desc}</div>${lock?'<span class="dp-lock">ADULT+</span>':''}</button>`}).join('')}
@@ -10852,134 +10985,441 @@ function renderDayOut(){
  const d=ensureDayOut();if(!d.place){openDayOutHub();return}
  if(Date.now()>=d.end&&!d.completed)dayOutFinish();
  const p=DAYOUT_PLACES[d.place],active=!d.completed&&Date.now()<d.end,rem=dayOutRemaining(),pct=Math.max(0,Math.min(100,rem/DAYOUT_DURATION*100));
- const div=document.createElement('div');div.className='overlay-panel pop-in';div.id='mg-overlay';
- div.innerHTML=`<button class="overlay-close" onclick="closeOverlay()">×</button><div class="overlay-title">DAY OUT — ${p.name.toUpperCase()}</div><div class="dayout-shell"><div class="dayout-card">
- <div class="dayout-scene ${d.place}" style="background-image:url('${dayOutBackground(d.place)}')"><div class="dayout-place-title">${p.name.toUpperCase()}</div><div class="dayout-pet">${dayOutPetMarkup()}</div></div>
- <div class="dayout-timer">${active?dayOutFmt(rem):'TODAY’S DAY OUT IS COMPLETE'}<div class="dayout-bar"><i style="width:${active?pct:0}%"></i></div></div>
- ${active?`<div class="dayout-activities">${p.acts.map((a,i)=>`<button class="dayout-act" onclick="doDayOutActivity(${i})" ${d.activities.includes(i)?'disabled':''}>${a[0]}<small>${a[1]}</small></button>`).join('')}</div>`:
- `<div class="quest-result"><b>A GOOD DAY OUT</b><br><br>${state.name} looks happier after spending the time with you.<br><br>Come back tomorrow for another destination.</div>`}
- <div class="dayout-log">${d.log.slice(-3).join('<br>')}</div></div></div>`;
+ const div=document.createElement('div');div.className='overlay-panel pop-in dayout-location-screen';div.id='mg-overlay';div.dataset.mode='dayout';
+ div.style.backgroundImage=`url('${dayOutBackground(d.place)}')`;
+ div.innerHTML=`<button class="overlay-close" onclick="closeOverlay()">×</button><div class="overlay-title">DAY OUT — ${p.name.toUpperCase()}</div>
+ <div class="dayout-fullscreen-shell">
+   <div class="dayout-fullstage"><div class="dayout-place-title">${p.name.toUpperCase()}</div><div class="dayout-pet">${dayOutPetMarkup()}</div></div>
+   <div class="dayout-full-controls">
+     <div class="dayout-timer">${active?dayOutFmt(rem):'TODAY’S DAY OUT IS COMPLETE'}<div class="dayout-bar"><i style="width:${active?pct:0}%"></i></div></div>
+     ${active?`<div class="dayout-activities">${p.acts.map((a,i)=>`<button class="dayout-act" onclick="doDayOutActivity(${i})" ${d.activities.includes(i)?'disabled':''}>${a[0]}<small>${a[1]}</small></button>`).join('')}</div>`:
+     `<div class="quest-result"><b>A GOOD DAY OUT</b><br><br>${state.name} looks happier after spending the time with you.<br><br>Come back tomorrow for another destination.</div>`}
+     <div class="dayout-log">${d.log.slice(-3).join('<br>')}</div>
+   </div>
+ </div>`;
  const old=document.getElementById('mg-overlay');if(old)old.replaceWith(div);else openOverlay(div);
- if(active){clearTimeout(window._dayOutRefresh);window._dayOutRefresh=setTimeout(()=>{if(document.getElementById('mg-overlay'))renderDayOut()},30000)}
-}
-
-const DAYOUT_GAME_TYPES={
- beach:['wavehop','sandstack','shellmatch','breath'],
- forest:['trail','scent','climb','picnic'],
- carnival:['target','ride','prize','lights'],
- zoo:['spot','fish','feed','watch'],
- park:['fetch','pond','grass','quiet'],
- tavern:['meal','rhythm','chat','fire']
-};
-let dayOutGame=null;
-function doDayOutActivity(i){
- const d=ensureDayOut();if(!dayOutActive())return renderDayOut();
- const p=DAYOUT_PLACES[d.place],a=p.acts[i];if(!a||d.activities.includes(i))return;
- launchDayOutGame(d.place,i,a);
-}
-function launchDayOutGame(place,i,a){
- dayOutGame={place,i,a,score:0,step:0,lives:3,start:Date.now(),data:{},done:false};
- renderDayOutGame();
-}
-function dogRand(n){return Math.floor(Math.random()*n)}
-function dogBtn(label,fn,extra=''){return `<button class="dayout-act" style="${extra}" onclick="${fn}">${label}</button>`}
-function renderDayOutGame(){
- const g=dayOutGame;if(!g)return renderDayOut();
- const names={
- wavehop:'WAVE HOP',sandstack:'SANDCASTLE STACK',shellmatch:'SHELL MATCH',breath:'SUNSET BREATH',
- trail:'TRAIL CHOICE',scent:'SCENT TRACKER',climb:'ROOT CLIMB',picnic:'PICNIC PACK',
- target:'RING TOSS',ride:'RIDE BALANCE',prize:'PRIZE CLAW',lights:'LIGHT MEMORY',
- spot:'ANIMAL SPOTTER',fish:'AQUARIUM FOLLOW',feed:'FEEDING SORT',watch:'KEEPER WATCH',
- fetch:'FETCH CATCH',pond:'LILY HOP',grass:'ROLL-O-METER',quiet:'QUIET TOGETHER',
- meal:'TAVERN PLATE',rhythm:'BARD RHYTHM',chat:'LOCAL CHAT',fire:'FIRESIDE STORY'
- };
- const type=DAYOUT_GAME_TYPES[g.place][g.i];
- const div=document.createElement('div');div.className='overlay-panel pop-in';div.id='mg-overlay';
- div.innerHTML=`<button class="overlay-close" onclick="dayOutGame=null;renderDayOut()">×</button><div class="overlay-title">${names[type]}</div>
- <div class="dayout-shell"><div class="dayout-card"><div id="dog-board" style="min-height:270px"></div>
- <div class="dayout-log">Score: <b id="dog-score">${g.score}</b> · ${g.a[1]}</div></div></div>`;
- const old=document.getElementById('mg-overlay');if(old)old.replaceWith(div);else openOverlay(div);
- renderDOGBoard(type);
-}
-function dogScore(n){dayOutGame.score+=n;const e=document.getElementById('dog-score');if(e)e.textContent=dayOutGame.score}
-function dogFinish(success=true,msg=''){
- const g=dayOutGame;if(!g||g.done)return;g.done=true;
- const d=ensureDayOut(),p=DAYOUT_PLACES[g.place],a=g.a;
- const quality=Math.max(.65,Math.min(1.35,.65+g.score/100));
- d.activities.push(g.i);
- state.happiness=clamp(state.happiness+Math.round(a[2]*quality),0,100);
- state.bondMeter=clamp((state.bondMeter||0)+a[3]*quality,0,100);
- state.energy=clamp(state.energy-2,0,100);
- d.log.push(msg||`${state.name} had fun playing ${a[0].toLowerCase()} with you.`);
- saveState();
- const b=document.getElementById('dog-board');
- if(b)b.innerHTML=`<div class="quest-result"><b>${success?'NICE ONE!':'ALL DONE!'}</b><br><br>${msg||`${state.name} looks delighted.`}<br><br>Score: ${g.score}<br><br>${dogBtn('BACK TO DAY OUT','dayOutGame=null;renderDayOut()')}</div>`;
-}
-function dogProgress(target,msg){dayOutGame.step++;if(dayOutGame.step>=target)dogFinish(true,msg);else renderDayOutGame()}
-function renderDOGBoard(t){
- const g=dayOutGame,b=document.getElementById('dog-board');if(!b)return;
- const pet=`<div style="font:10px var(--font-display);color:#d9b77d;margin-bottom:9px">${state.name.toUpperCase()}</div>`;
- if(t==='wavehop'){
-   const safe=dogRand(3);g.data.safe=safe;b.innerHTML=pet+`<p>Jump when the wave reaches the safe patch. Pick the calm gap.</p><div class="dayout-activities">${[0,1,2].map(x=>dogBtn(['LEFT','MIDDLE','RIGHT'][x],`dogChoice(${x},${safe},5)`)).join('')}</div><p>Wave ${g.step+1}/5</p>`;
- }else if(t==='sandstack'){
-   const width=Math.max(25,80-g.step*8),pos=dogRand(70);g.data.pos=pos;b.innerHTML=pet+`<p>Stack five sandcastle layers. Hit DROP while the moving block is near the centre.</p><div style="height:120px;position:relative;border-bottom:3px solid #b99b62"><i style="position:absolute;left:${pos}%;top:20px;width:${width}px;height:18px;background:#d6bc7c"></i></div>${dogBtn('DROP','dogTiming()')}<p>Layer ${g.step+1}/5</p>`;
- }else if(t==='shellmatch'){
-   if(!g.data.seq)g.data.seq=Array.from({length:4},()=>dogRand(4));const want=g.data.seq[g.step];b.innerHTML=pet+`<p>Remember the shell trail: ${g.data.seq.map((x,i)=>i<=g.step?'?':'·').join(' ')}</p><div class="dayout-activities">${['SPIRAL','STRIPED','PEARL','STAR'].map((x,i)=>dogBtn(x,`dogChoice(${i},${want},4)`)).join('')}</div><small>Hint: ${['Spiral','Striped','Pearl','Star'][want]} flashed in the sand.</small>`;
- }else if(t==='breath'){
-   b.innerHTML=pet+`<p>Relax together. Keep the breathing marker in the calm zone for four breaths.</p><div class="dayout-bar" style="height:18px"><i style="width:${25+g.step*18}%"></i></div>${dogBtn(g.step%2?'BREATHE OUT':'BREATHE IN',`dogProgress(4,'You and ${state.name} settle into the sound of the sea.')`)}`;
- }else if(t==='trail'){
-   const good=dogRand(3);b.innerHTML=pet+`<p>The forest path forks. Read the signs and choose the safest trail.</p><div class="dayout-activities">${['MOSSY PATH','SUNLIT PATH','CREEK PATH'].map((x,i)=>dogBtn(x,`dogChoice(${i},${good},5)`)).join('')}</div><small>${['Fresh pawprints avoid the creek.','Broken twigs point toward sunlight.','The moss is disturbed on one side.'][good]}</small>`;
- }else if(t==='scent'){
-   const good=dogRand(4);b.innerHTML=pet+`<p>${state.name} catches a scent. Which direction gets stronger?</p><div class="dayout-activities">${['NORTH','EAST','SOUTH','WEST'].map((x,i)=>dogBtn(x,`dogChoice(${i},${good},5)`)).join('')}</div><small>The scent meter flickers strongest toward ${['north','east','south','west'][good]}.</small>`;
- }else if(t==='climb'){
-   b.innerHTML=pet+`<p>Climb the old roots. Alternate paws without slipping.</p><div class="dayout-activities">${dogBtn('LEFT PAW',`dogAlternate(0)`)}${dogBtn('RIGHT PAW',`dogAlternate(1)`)}</div><p>Height ${g.step}/8</p>`;
- }else if(t==='picnic'){
-   if(!g.data.want)g.data.want=['WATER','FRUIT','NAPKIN','TREAT'].sort(()=>Math.random()-.5);const want=g.data.want[g.step];b.innerHTML=pet+`<p>Pack the picnic in the right order.</p><div class="dayout-activities">${['WATER','FRUIT','NAPKIN','TREAT'].map(x=>dogBtn(x,`dogWord('${x}','${want}',4)`)).join('')}</div><small>Next: ${want.toLowerCase()}</small>`;
- }else if(t==='target'){
-   const target=dogRand(5);b.innerHTML=pet+`<p>Ring toss! Pick the bottle the ring is lined up with.</p><div class="dayout-activities">${[1,2,3,4,5].map((x,i)=>dogBtn(String(x),`dogChoice(${i},${target},6)`)).join('')}</div><small>The crosshair is over bottle ${target+1}.</small>`;
- }else if(t==='ride'){
-   const dir=dogRand(2);b.innerHTML=pet+`<p>The ride lurches ${dir?'right':'left'}! Lean the other way to keep ${state.name} balanced.</p><div class="dayout-activities">${dogBtn('LEAN LEFT',`dogChoice(0,${dir?0:1},6)`)}${dogBtn('LEAN RIGHT',`dogChoice(1,${dir?0:1},6)`)}</div>`;
- }else if(t==='prize'){
-   const pos=dogRand(5);b.innerHTML=pet+`<p>Line up the claw over the prize.</p><div style="letter-spacing:18px;font-size:25px;text-align:center">· · · · ·</div><div class="dayout-activities">${[1,2,3,4,5].map((x,i)=>dogBtn('▼',`dogChoice(${i},${pos},4)`)).join('')}</div><small>The prize twinkles beneath slot ${pos+1}.</small>`;
- }else if(t==='lights'){
-   if(!g.data.seq)g.data.seq=Array.from({length:5},()=>dogRand(4));const want=g.data.seq[g.step];b.innerHTML=pet+`<p>Repeat the carnival light sequence.</p><div class="dayout-activities">${['RED','BLUE','GOLD','GREEN'].map((x,i)=>dogBtn(x,`dogChoice(${i},${want},5)`)).join('')}</div><small>Flash ${g.step+1}: ${['red','blue','gold','green'][want]}</small>`;
- }else if(t==='spot'){
-   const animal=dogRand(4);b.innerHTML=pet+`<p>Spot the animal described by the keeper.</p><small>${['Long neck, tallest in the enclosure.','Black and white stripes.','Huge ears and a trunk.','Sleeps high in the branches.'][animal]}</small><div class="dayout-activities">${['GIRAFFE','ZEBRA','ELEPHANT','SLOTH'].map((x,i)=>dogBtn(x,`dogChoice(${i},${animal},5)`)).join('')}</div>`;
- }else if(t==='fish'){
-   const dir=dogRand(3);b.innerHTML=pet+`<p>Follow the bright aquarium fish without losing it.</p><div style="font-size:35px;text-align:${['left','center','right'][dir]}">><</div><div class="dayout-activities">${['LEFT','CENTRE','RIGHT'].map((x,i)=>dogBtn(x,`dogChoice(${i},${dir},6)`)).join('')}</div>`;
- }else if(t==='feed'){
-   const animal=dogRand(3);b.innerHTML=pet+`<p>Help sort the keeper's food.</p><b>${['MONKEY','PENGUIN','TORTOISE'][animal]}</b><div class="dayout-activities">${['FRUIT','FISH','LEAVES'].map((x,i)=>dogBtn(x,`dogChoice(${i},${animal},6)`)).join('')}</div>`;
- }else if(t==='watch'){
-   b.innerHTML=pet+`<p>Watch quietly during the keeper talk. Tap only when the animal icon appears.</p><div style="font-size:42px;text-align:center">${g.step%2?'...':'PAW!'}</div>${dogBtn(g.step%2?'WAIT':'SPOT IT!',`dogProgress(5,'You and ${state.name} catch every interesting moment.')`)}`;
- }else if(t==='fetch'){
-   const lane=dogRand(3);b.innerHTML=pet+`<p>Catch the returning ball!</p><div style="font-size:28px;text-align:${['left','center','right'][lane]}">●</div><div class="dayout-activities">${['LEFT','MIDDLE','RIGHT'].map((x,i)=>dogBtn(x,`dogChoice(${i},${lane},7)`)).join('')}</div>`;
- }else if(t==='pond'){
-   const pad=dogRand(4);b.innerHTML=pet+`<p>Guide ${state.name} across the lily pads. One is sturdy.</p><div class="dayout-activities">${[1,2,3,4].map((x,i)=>dogBtn('PAD '+x,`dogChoice(${i},${pad},6)`)).join('')}</div><small>Ripples are calmest around pad ${pad+1}.</small>`;
- }else if(t==='grass'){
-   b.innerHTML=pet+`<p>${state.name} wants the perfect grass roll. Build the silliness meter!</p><div class="dayout-bar" style="height:18px"><i style="width:${Math.min(100,g.step*14)}%"></i></div>${dogBtn('ROLL!','dogProgress(7,`'+state.name+' finishes absolutely covered in grass.`)')}`;
- }else if(t==='quiet'){
-   b.innerHTML=pet+`<p>A tiny bonding game: match ${state.name}'s mood rather than rushing.</p><div class="dayout-activities">${dogBtn('PET GENTLY',`dogCalm(0)`)}${dogBtn('SIT QUIETLY',`dogCalm(1)`)}</div><small>${g.step%2?'They lean closer. Give them a gentle pet.':'They seem peaceful. Just sit with them.'}</small>`;
- }else if(t==='meal'){
-   const want=dogRand(3);b.innerHTML=pet+`<p>Build a Petling-safe tavern plate.</p><div class="dayout-activities">${['HEARTY','LIGHT','CRUNCHY'].map((x,i)=>dogBtn(x,`dogChoice(${i},${want},5)`)).join('')}</div><small>${state.name} seems in the mood for something ${['hearty','light','crunchy'][want]}.</small>`;
- }else if(t==='rhythm'){
-   const beat=dogRand(3);b.innerHTML=pet+`<p>Keep time with the bard.</p><div style="text-align:center;font-size:22px">${['♪ · ·','· ♪ ·','· · ♪'][beat]}</div><div class="dayout-activities">${['ONE','TWO','THREE'].map((x,i)=>dogBtn(x,`dogChoice(${i},${beat},8)`)).join('')}</div>`;
- }else if(t==='chat'){
-   const mood=dogRand(3);b.innerHTML=pet+`<p>A local starts chatting. Pick the response that suits their mood.</p><small>${['They are boasting about a huge fish.','They look worried about tomorrow.','They tell a terrible joke and wait.'][mood]}</small><div class="dayout-activities">${['ASK FOR DETAILS','REASSURE THEM','LAUGH'].map((x,i)=>dogBtn(x,`dogChoice(${i},${mood},5)`)).join('')}</div>`;
- }else if(t==='fire'){
-   b.innerHTML=pet+`<p>Build a little fireside story together. Choose what happens next.</p><div class="dayout-activities">${['A DRAGON APPEARS','A SECRET DOOR OPENS','A GHOST SINGS','TREASURE!'].map((x,i)=>dogBtn(x,`dogStory('${x}')`)).join('')}</div><p>Story beats: ${g.step}/4</p>`;
+ if(active){
+   clearTimeout(window._dayOutRefresh);
+   const outingKey=`${d.day}|${d.place}|${d.start}`;
+   window._dayOutRefresh=setTimeout(()=>{
+     window._dayOutRefresh=null;
+     const ov=document.getElementById('mg-overlay');
+     const cur=state&&state.dayOut;
+     // Only refresh if the player is STILL looking at this exact Day Out.
+     // Any casino/fishing/menu overlay is left completely untouched.
+     if(!ov||ov.dataset.mode!=='dayout')return;
+     if(!cur||`${cur.day}|${cur.place}|${cur.start}`!==outingKey)return;
+     if(dayOutGame)return; // never interrupt a Day Out minigame either
+     renderDayOut();
+   },30000);
  }
 }
-function dogChoice(choice,want,target){
- if(choice===want){dogScore(18);dogProgress(target,`${state.name} loved that game.`)}
- else{dayOutGame.lives--;dogScore(4);if(dayOutGame.lives<=0)dogFinish(false,`${state.name} still had fun, even if it got a little chaotic.`);else renderDayOutGame()}
-}
-function dogWord(x,want,target){dogChoice(x,want,target)}
-function dogTiming(){const p=dayOutGame.data.pos,good=Math.abs(p-45)<24;if(good){dogScore(20);dogProgress(5,'Your sandcastle survives the final layer!')}else{dogScore(5);dayOutGame.step++;if(dayOutGame.step>=5)dogFinish(false,'The sandcastle is wonky, but you both seem proud of it.');else renderDayOutGame()}}
-function dogAlternate(side){const want=dayOutGame.step%2;if(side===want){dogScore(12);dogProgress(8,`${state.name} reaches the top of the roots.`)}else{dogScore(2);renderDayOutGame()}}
-function dogCalm(choice){const want=dayOutGame.step%2?0:1;if(choice===want){dogScore(18);dogProgress(5,`You and ${state.name} share a genuinely peaceful moment.`)}else{dogScore(3);renderDayOutGame()}}
-function dogStory(x){dayOutGame.data.story=(dayOutGame.data.story||[]).concat(x);dogScore(15);dayOutGame.step++;if(dayOutGame.step>=4)dogFinish(true,`${state.name} listens to your ridiculous story all the way to the end.`);else renderDayOutGame()}
-window.dogChoice=dogChoice;window.dogWord=dogWord;window.dogTiming=dogTiming;window.dogAlternate=dogAlternate;window.dogCalm=dogCalm;window.dogStory=dogStory;
 
+
+const DAYOUT_GAME_TYPES={
+  beach:['wavehop','sandstack','shellmatch','breath'],
+  forest:['trail','scent','climb','picnic'],
+  carnival:['target','ride','prize','lights'],
+  zoo:['spot','fish','feed','watch'],
+  park:['fetch','pond','grass','quiet'],
+  tavern:['meal','rhythm','chat','fire']
+};
+const DAYOUT_GAME_NAMES={
+  wavehop:'WAVE HOP',sandstack:'SANDCASTLE STACK',shellmatch:'SHELL MATCH',breath:'SUNSET BREATH',
+  trail:'TRAIL CHOICE',scent:'SCENT TRACKER',climb:'ROOT CLIMB',picnic:'PICNIC PACK',
+  target:'RING TOSS',ride:'RIDE BALANCE',prize:'PRIZE CLAW',lights:'LIGHT MEMORY',
+  spot:'ANIMAL SPOTTER',fish:'AQUARIUM FOLLOW',feed:'FEEDING SORT',watch:'KEEPER WATCH',
+  fetch:'FETCH CATCH',pond:'LILY HOP',grass:'ROLL-O-METER',quiet:'QUIET TOGETHER',
+  meal:'TAVERN PLATE',rhythm:'BARD RHYTHM',chat:'LOCAL CHAT',fire:'FIRESIDE STORY'
+};
+let dayOutGame=null;
+let dayOutGameTimer=null;
+
+function clearDayOutGameTimer(){
+  if(dayOutGameTimer){clearInterval(dayOutGameTimer);dayOutGameTimer=null}
+}
+function doDayOutActivity(i){
+  const d=ensureDayOut();
+  if(!dayOutActive())return renderDayOut();
+  const p=DAYOUT_PLACES[d.place],a=p&&p.acts&&p.acts[i];
+  if(!a||d.activities.includes(i))return;
+  launchDayOutGame(d.place,i,a);
+}
+function launchDayOutGame(place,i,a){
+  const types=DAYOUT_GAME_TYPES[place];
+  if(!types||!types[i]){
+    showToast('That Day Out game could not be started.');
+    return;
+  }
+  clearDayOutGameTimer();
+  dayOutGame={
+    place,i,a,type:types[i],
+    score:0,step:0,lives:3,start:Date.now(),
+    data:{round:0},done:false,busy:false
+  };
+  renderDayOutGame();
+}
+function dogRand(n){return Math.floor(Math.random()*n)}
+function dogEsc(v){
+  return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function dogBtn(label,action,args=[],extra=''){
+  const payload=encodeURIComponent(JSON.stringify({action,args}));
+  return `<button type="button" class="dayout-act dog-action" style="${extra}" data-dog="${payload}">${dogEsc(label)}</button>`;
+}
+function bindDOGBoard(board){
+  if(!board||board.dataset.dogBound==='1')return;
+  board.dataset.dogBound='1';
+  board.addEventListener('click',e=>{
+    const btn=e.target.closest('.dog-action');
+    if(!btn||!board.contains(btn)||btn.disabled)return;
+    let payload;
+    try{payload=JSON.parse(decodeURIComponent(btn.dataset.dog||''))}catch(err){return}
+    if(!payload||!payload.action)return;
+    runDogAction(payload.action,Array.isArray(payload.args)?payload.args:[]);
+  });
+}
+function runDogAction(action,args){
+  if(!dayOutGame||dayOutGame.done||dayOutGame.busy)return;
+  switch(action){
+    case 'choice': return dogChoice(Number(args[0]),Number(args[1]),Number(args[2]));
+    case 'word': return dogWord(String(args[0]),String(args[1]),Number(args[2]));
+    case 'timing': return dogTiming();
+    case 'progress': return dogProgress(Number(args[0]),String(args[1]||''));
+    case 'alternate': return dogAlternate(Number(args[0]));
+    case 'calm': return dogCalm(Number(args[0]));
+    case 'story': return dogStory(String(args[0]));
+    case 'watch': return dogWatchChoice(String(args[0]));
+    case 'back':
+      clearDayOutGameTimer();
+      dayOutGame=null;
+      return renderDayOut();
+  }
+}
+function renderDayOutGame(){
+  const g=dayOutGame;
+  if(!g)return renderDayOut();
+  if(g.done)return;
+  const type=g.type||DAYOUT_GAME_TYPES[g.place]?.[g.i];
+  if(!type){
+    showToast('That Day Out game could not be loaded.');
+    dayOutGame=null;
+    return renderDayOut();
+  }
+
+  const div=document.createElement('div');
+  div.className='overlay-panel pop-in';
+  div.id='mg-overlay';
+  div.dataset.mode='dayout';
+  div.innerHTML=`<button class="overlay-close" type="button">×</button>
+    <div class="overlay-title">${DAYOUT_GAME_NAMES[type]||'DAY OUT GAME'}</div>
+    <div class="dayout-shell"><div class="dayout-card">
+      <div id="dog-board" style="min-height:270px"></div>
+      <div class="dayout-log">Score: <b id="dog-score">${g.score}</b> · Lives: <b id="dog-lives">${Math.max(0,g.lives)}</b> · ${dogEsc(g.a[1])}</div>
+    </div></div>`;
+  div.querySelector('.overlay-close').addEventListener('click',()=>{
+    clearDayOutGameTimer();
+    dayOutGame=null;
+    renderDayOut();
+  });
+
+  const old=document.getElementById('mg-overlay');
+  if(old)old.replaceWith(div);else openOverlay(div);
+  renderDOGBoard(type);
+}
+function dogScore(n){
+  if(!dayOutGame)return;
+  dayOutGame.score+=n;
+  const e=document.getElementById('dog-score');
+  if(e)e.textContent=dayOutGame.score;
+}
+function dogLoseLife(n=1){
+  if(!dayOutGame)return false;
+  dayOutGame.lives=Math.max(0,dayOutGame.lives-n);
+  const e=document.getElementById('dog-lives');
+  if(e)e.textContent=dayOutGame.lives;
+  return dayOutGame.lives<=0;
+}
+function dogFinish(success=true,msg=''){
+  const g=dayOutGame;if(!g||g.done)return;
+  g.done=true;clearDayOutGameTimer();
+  const d=ensureDayOut(),a=g.a;
+  const quality=Math.max(.65,Math.min(1.35,.65+g.score/100));
+  if(!d.activities.includes(g.i))d.activities.push(g.i);
+  state.happiness=clamp(state.happiness+Math.round(a[2]*quality),0,100);
+  state.bondMeter=clamp((state.bondMeter||0)+a[3]*quality,0,100);
+  state.energy=clamp(state.energy-2,0,100);
+  d.log.push(msg||`${state.name} had fun playing ${a[0].toLowerCase()} with you.`);
+  saveState();
+
+  const b=document.getElementById('dog-board');
+  if(b){
+    b.dataset.dogBound='0';
+    b.innerHTML=`<div class="quest-result"><b>${success?'NICE ONE!':'ALL DONE!'}</b><br><br>${dogEsc(msg||`${state.name} looks delighted.`)}<br><br>Score: ${g.score}<br><br>${dogBtn('BACK TO DAY OUT','back')}</div>`;
+    bindDOGBoard(b);
+  }
+}
+function dogProgress(target,msg=''){
+  if(!dayOutGame||dayOutGame.done)return;
+  dayOutGame.step++;
+  if(dayOutGame.step>=target)dogFinish(true,msg);
+  else renderDayOutGame();
+}
+function dogWrong(msg='Not quite — try the next one.'){
+  if(!dayOutGame)return;
+  dogScore(3);
+  if(dogLoseLife())dogFinish(false,`${state.name} still had fun, even when it got a little chaotic.`);
+  else{
+    dayOutGame.data.feedback=msg;
+    renderDayOutGame();
+  }
+}
+function dogFeedback(g){
+  const s=g.data&&g.data.feedback;
+  if(!s)return '';
+  g.data.feedback='';
+  return `<div class="dayout-status" style="margin-top:8px">${dogEsc(s)}</div>`;
+}
+function dogSetRoundValue(g,key,value){
+  const roundKey=key+'Round';
+  if(g.data[roundKey]!==g.step){
+    g.data[roundKey]=g.step;
+    g.data[key]=value;
+  }
+  return g.data[key];
+}
+
+function renderDOGBoard(t){
+  const g=dayOutGame,b=document.getElementById('dog-board');if(!g||!b)return;
+  clearDayOutGameTimer();
+  const pet=`<div style="font:10px var(--font-display);color:#d9b77d;margin-bottom:9px">${dogEsc(state.name.toUpperCase())}</div>`;
+  const feedback=dogFeedback(g);
+
+  if(t==='wavehop'){
+    const safe=dogSetRoundValue(g,'safe',dogRand(3));
+    b.innerHTML=pet+`<p>Choose the calm gap before the wave reaches you.</p><div class="dayout-activities">${[0,1,2].map(x=>dogBtn(['LEFT','MIDDLE','RIGHT'][x],'choice',[x,safe,5])).join('')}</div><p>Wave ${g.step+1}/5</p>${feedback}`;
+
+  }else if(t==='sandstack'){
+    if(g.data.stackRound!==g.step){
+      g.data.stackRound=g.step;g.data.stackStarted=performance.now();
+    }
+    b.innerHTML=pet+`<p>Time DROP so the moving sand block is near the centre line.</p>
+      <div style="height:120px;position:relative;border-bottom:3px solid #b99b62;overflow:hidden">
+        <div style="position:absolute;left:50%;top:8px;bottom:0;border-left:2px dashed rgba(255,255,255,.55)"></div>
+        <i id="dog-moving-block" style="position:absolute;left:0%;top:32px;width:${Math.max(28,64-g.step*6)}px;height:18px;background:#d6bc7c"></i>
+      </div>${dogBtn('DROP','timing')}<p>Layer ${g.step+1}/5</p>${feedback}`;
+    const block=b.querySelector('#dog-moving-block');
+    dayOutGameTimer=setInterval(()=>{
+      if(!block||!dayOutGame||dayOutGame.done){clearDayOutGameTimer();return}
+      const phase=((performance.now()-g.data.stackStarted)%2400)/2400;
+      const x=phase<.5?phase*2:(1-phase)*2;
+      g.data.stackPos=x*82;
+      block.style.left=g.data.stackPos.toFixed(1)+'%';
+    },30);
+
+  }else if(t==='shellmatch'){
+    if(!g.data.seq)g.data.seq=Array.from({length:4},()=>dogRand(4));
+    const want=g.data.seq[g.step];
+    b.innerHTML=pet+`<p>Follow the shell trail. Choose the shell that just flashed.</p>
+      <div class="dayout-activities">${['SPIRAL','STRIPED','PEARL','STAR'].map((x,i)=>dogBtn(x,'choice',[i,want,4])).join('')}</div>
+      <small>Flash: ${['Spiral','Striped','Pearl','Star'][want]}</small>${feedback}`;
+
+  }else if(t==='breath'){
+    const label=g.step%2?'BREATHE OUT':'BREATHE IN';
+    b.innerHTML=pet+`<p>Match the slow breathing rhythm for four breaths.</p>
+      <div class="dayout-bar" style="height:18px"><i style="width:${25+g.step*18}%"></i></div>
+      ${dogBtn(label,'progress',[4,`You and ${state.name} settle into the sound of the sea.`])}${feedback}`;
+
+  }else if(t==='trail'){
+    const good=dogSetRoundValue(g,'trailGood',dogRand(3));
+    b.innerHTML=pet+`<p>The forest path forks. Read the sign and choose the safest trail.</p>
+      <small>${['Fresh pawprints avoid the creek.','Broken twigs point toward sunlight.','The moss is disturbed beside the creek.'][good]}</small>
+      <div class="dayout-activities">${['MOSSY PATH','SUNLIT PATH','CREEK PATH'].map((x,i)=>dogBtn(x,'choice',[i,good,5])).join('')}</div>${feedback}`;
+
+  }else if(t==='scent'){
+    const good=dogSetRoundValue(g,'scentGood',dogRand(4));
+    b.innerHTML=pet+`<p>${dogEsc(state.name)} catches a scent. Follow the strongest direction.</p>
+      <small>The scent meter points ${['north','east','south','west'][good]}.</small>
+      <div class="dayout-activities">${['NORTH','EAST','SOUTH','WEST'].map((x,i)=>dogBtn(x,'choice',[i,good,5])).join('')}</div>${feedback}`;
+
+  }else if(t==='climb'){
+    b.innerHTML=pet+`<p>Alternate paws to climb the old roots without slipping.</p>
+      <div class="dayout-activities">${dogBtn('LEFT PAW','alternate',[0])}${dogBtn('RIGHT PAW','alternate',[1])}</div>
+      <p>Height ${g.step}/8</p>${feedback}`;
+
+  }else if(t==='picnic'){
+    if(!g.data.want)g.data.want=['WATER','FRUIT','NAPKIN','TREAT'].sort(()=>Math.random()-.5);
+    const want=g.data.want[g.step];
+    b.innerHTML=pet+`<p>Pack the picnic in the requested order.</p>
+      <small>Next: ${dogEsc(want.toLowerCase())}</small>
+      <div class="dayout-activities">${['WATER','FRUIT','NAPKIN','TREAT'].map(x=>dogBtn(x,'word',[x,want,4])).join('')}</div>${feedback}`;
+
+  }else if(t==='target'){
+    const target=dogSetRoundValue(g,'ringTarget',dogRand(5));
+    b.innerHTML=pet+`<p>Ring toss. Throw at the bottle under the crosshair.</p>
+      <small>Crosshair: bottle ${target+1}</small>
+      <div class="dayout-activities">${[1,2,3,4,5].map((x,i)=>dogBtn(String(x),'choice',[i,target,6])).join('')}</div>${feedback}`;
+
+  }else if(t==='ride'){
+    const dir=dogSetRoundValue(g,'rideDir',dogRand(2));
+    const want=dir?0:1;
+    b.innerHTML=pet+`<p>The ride lurches ${dir?'right':'left'}! Lean the opposite way.</p>
+      <div class="dayout-activities">${dogBtn('LEAN LEFT','choice',[0,want,6])}${dogBtn('LEAN RIGHT','choice',[1,want,6])}</div>${feedback}`;
+
+  }else if(t==='prize'){
+    const pos=dogSetRoundValue(g,'prizePos',dogRand(5));
+    b.innerHTML=pet+`<p>Line the claw up with the glowing prize.</p>
+      <div style="text-align:center;font-size:18px;margin:12px 0">PRIZE SLOT ${pos+1}</div>
+      <div class="dayout-activities">${[1,2,3,4,5].map((x,i)=>dogBtn('DROP '+x,'choice',[i,pos,4])).join('')}</div>${feedback}`;
+
+  }else if(t==='lights'){
+    if(!g.data.seq)g.data.seq=Array.from({length:5},()=>dogRand(4));
+    const want=g.data.seq[g.step];
+    b.innerHTML=pet+`<p>Repeat the light that flashes.</p>
+      <div style="text-align:center;font-size:16px;margin:10px">${['RED','BLUE','GOLD','GREEN'][want]} FLASHES</div>
+      <div class="dayout-activities">${['RED','BLUE','GOLD','GREEN'].map((x,i)=>dogBtn(x,'choice',[i,want,5])).join('')}</div>${feedback}`;
+
+  }else if(t==='spot'){
+    const animal=dogSetRoundValue(g,'animal',dogRand(4));
+    b.innerHTML=pet+`<p>Spot the animal described by the keeper.</p>
+      <small>${['Long neck, tallest in the enclosure.','Black and white stripes.','Huge ears and a trunk.','Sleeps high in the branches.'][animal]}</small>
+      <div class="dayout-activities">${['GIRAFFE','ZEBRA','ELEPHANT','SLOTH'].map((x,i)=>dogBtn(x,'choice',[i,animal,5])).join('')}</div>${feedback}`;
+
+  }else if(t==='fish'){
+    const dir=dogSetRoundValue(g,'fishDir',dogRand(3));
+    b.innerHTML=pet+`<p>Follow the bright aquarium fish.</p>
+      <div style="font-size:30px;text-align:${['left','center','right'][dir]};padding:20px 10px">FISH</div>
+      <div class="dayout-activities">${['LEFT','CENTRE','RIGHT'].map((x,i)=>dogBtn(x,'choice',[i,dir,6])).join('')}</div>${feedback}`;
+
+  }else if(t==='feed'){
+    const animal=dogSetRoundValue(g,'feedAnimal',dogRand(3));
+    b.innerHTML=pet+`<p>Sort the correct food for the animal.</p>
+      <b>${['MONKEY','PENGUIN','TORTOISE'][animal]}</b>
+      <div class="dayout-activities">${['FRUIT','FISH','LEAVES'].map((x,i)=>dogBtn(x,'choice',[i,animal,6])).join('')}</div>${feedback}`;
+
+  }else if(t==='watch'){
+    if(g.data.watchRound!==g.step){
+      g.data.watchRound=g.step;
+      g.data.watchSignal=Math.random()<.55;
+    }
+    const signal=g.data.watchSignal;
+    b.innerHTML=pet+`<p>At the keeper talk, react only when the paw signal appears.</p>
+      <div style="font-size:34px;text-align:center;margin:18px 0">${signal?'PAW!':'...'}</div>
+      <div class="dayout-activities">${dogBtn('SPOT IT!','watch',['spot'])}${dogBtn('WAIT','watch',['wait'])}</div>${feedback}`;
+
+  }else if(t==='fetch'){
+    const lane=dogSetRoundValue(g,'fetchLane',dogRand(3));
+    b.innerHTML=pet+`<p>Catch the returning ball.</p>
+      <div style="font-size:28px;text-align:${['left','center','right'][lane]};padding:16px">BALL</div>
+      <div class="dayout-activities">${['LEFT','MIDDLE','RIGHT'].map((x,i)=>dogBtn(x,'choice',[i,lane,7])).join('')}</div>${feedback}`;
+
+  }else if(t==='pond'){
+    const pad=dogSetRoundValue(g,'pondPad',dogRand(4));
+    b.innerHTML=pet+`<p>One lily pad is steady enough to cross.</p>
+      <small>The calmest ripples are around pad ${pad+1}.</small>
+      <div class="dayout-activities">${[1,2,3,4].map((x,i)=>dogBtn('PAD '+x,'choice',[i,pad,6])).join('')}</div>${feedback}`;
+
+  }else if(t==='grass'){
+    b.innerHTML=pet+`<p>Build the silliness meter with seven good rolls.</p>
+      <div class="dayout-bar" style="height:18px"><i style="width:${Math.min(100,g.step/7*100)}%"></i></div>
+      ${dogBtn('ROLL!','progress',[7,`${state.name} finishes absolutely covered in grass.`])}
+      <p>Rolls ${g.step}/7</p>${feedback}`;
+
+  }else if(t==='quiet'){
+    const want=g.step%2?0:1;
+    b.innerHTML=pet+`<p>Match ${dogEsc(state.name)}'s mood rather than rushing.</p>
+      <small>${g.step%2?'They lean closer. A gentle pet would be nice.':'They seem peaceful. Just sit with them.'}</small>
+      <div class="dayout-activities">${dogBtn('PET GENTLY','calm',[0])}${dogBtn('SIT QUIETLY','calm',[1])}</div>${feedback}`;
+
+  }else if(t==='meal'){
+    const want=dogSetRoundValue(g,'mealWant',dogRand(3));
+    b.innerHTML=pet+`<p>Build a Petling-safe tavern plate.</p>
+      <small>${dogEsc(state.name)} wants something ${['hearty','light','crunchy'][want]}.</small>
+      <div class="dayout-activities">${['HEARTY','LIGHT','CRUNCHY'].map((x,i)=>dogBtn(x,'choice',[i,want,5])).join('')}</div>${feedback}`;
+
+  }else if(t==='rhythm'){
+    const beat=dogSetRoundValue(g,'beat',dogRand(3));
+    b.innerHTML=pet+`<p>Tap the beat highlighted by the bard.</p>
+      <div style="text-align:center;font-size:22px;margin:12px">${['♪ · ·','· ♪ ·','· · ♪'][beat]}</div>
+      <div class="dayout-activities">${['ONE','TWO','THREE'].map((x,i)=>dogBtn(x,'choice',[i,beat,8])).join('')}</div>${feedback}`;
+
+  }else if(t==='chat'){
+    const mood=dogSetRoundValue(g,'chatMood',dogRand(3));
+    b.innerHTML=pet+`<p>A local starts chatting. Choose the response that fits.</p>
+      <small>${['They are boasting about a huge fish.','They look worried about tomorrow.','They tell a terrible joke and wait.'][mood]}</small>
+      <div class="dayout-activities">${['ASK FOR DETAILS','REASSURE THEM','LAUGH'].map((x,i)=>dogBtn(x,'choice',[i,mood,5])).join('')}</div>${feedback}`;
+
+  }else if(t==='fire'){
+    b.innerHTML=pet+`<p>Build a four-part fireside story together.</p>
+      <div class="dayout-activities">${['A DRAGON APPEARS','A SECRET DOOR OPENS','A GHOST SINGS','TREASURE!'].map(x=>dogBtn(x,'story',[x])).join('')}</div>
+      <p>Story beats: ${g.step}/4</p>${feedback}`;
+
+  }else{
+    b.innerHTML=pet+`<div class="quest-result">This activity failed to load correctly.<br><br>${dogBtn('BACK TO DAY OUT','back')}</div>`;
+  }
+  bindDOGBoard(b);
+}
+function dogChoice(choice,want,target){
+  if(!dayOutGame)return;
+  if(choice===want){
+    dogScore(18);
+    dayOutGame.data.feedback='Nice!';
+    dogProgress(target,`${state.name} loved that game.`);
+  }else dogWrong('Not quite — try again.');
+}
+function dogWord(x,want,target){
+  if(x===want){
+    dogScore(18);
+    dayOutGame.data.feedback='Packed correctly.';
+    dogProgress(target,`${state.name} enjoyed the picnic.`);
+  }else dogWrong('That is not the next picnic item.');
+}
+function dogTiming(){
+  const g=dayOutGame;if(!g)return;
+  const p=Number(g.data.stackPos||0);
+  const centre=p+16;
+  const good=Math.abs(centre-50)<=18;
+  if(good){
+    dogScore(20);
+    g.data.feedback='Great drop!';
+    dogProgress(5,'Your sandcastle survives the final layer!');
+  }else{
+    dogScore(5);
+    if(dogLoseLife())dogFinish(false,'The sandcastle is wonky, but you both seem proud of it.');
+    else{
+      g.step++;
+      if(g.step>=5)dogFinish(false,'The sandcastle is wonky, but you both seem proud of it.');
+      else{g.data.feedback='Missed the centre — next layer.';renderDayOutGame();}
+    }
+  }
+}
+function dogAlternate(side){
+  const g=dayOutGame;if(!g)return;
+  const want=g.step%2;
+  if(side===want){dogScore(12);dogProgress(8,`${state.name} reaches the top of the roots.`)}
+  else dogWrong('Wrong paw — alternate left and right.');
+}
+function dogCalm(choice){
+  const g=dayOutGame;if(!g)return;
+  const want=g.step%2?0:1;
+  if(choice===want){dogScore(18);dogProgress(5,`You and ${state.name} share a genuinely peaceful moment.`)}
+  else dogWrong('That was a little too much for the mood.');
+}
+function dogStory(x){
+  const g=dayOutGame;if(!g)return;
+  g.data.story=(g.data.story||[]).concat(x);
+  dogScore(15);g.step++;
+  if(g.step>=4)dogFinish(true,`${state.name} listens to your ridiculous story all the way to the end.`);
+  else renderDayOutGame();
+}
+function dogWatchChoice(choice){
+  const g=dayOutGame;if(!g)return;
+  const correct=(g.data.watchSignal&&choice==='spot')||(!g.data.watchSignal&&choice==='wait');
+  if(correct){dogScore(16);dogProgress(5,`${state.name} catches every interesting keeper-talk moment.`)}
+  else dogWrong(g.data.watchSignal?'You missed the paw signal.':'Too early — there was no signal yet.');
+}
+
+window.doDayOutActivity=doDayOutActivity;
 function dayOutFinish(){
  const d=ensureDayOut();if(!d.place||d.completed)return;
  if(Date.now()<d.end)return;
@@ -12000,7 +12440,7 @@ function renderSetup(app){
     <div class="header"><h1>PETLING</h1><div class="status"><span class="led green"></span></div></div>
     <div class="setup">
       <h2>CHOOSE AN EGG</h2>
-      <p>Pick one of three eggs and keep it at the right temperature until it hatches. You'll name your companion once you meet it.</p>
+      <p>Pick one of three eggs and incubate it until it hatches. The temperature slowly falls — time your HEAT pulses to keep bringing it back into the perfect zone. You'll name your companion once you meet it.</p>
       <div class="egg-grid" id="egg-grid">
         ${[1,2,3].map(id => `<div class="egg-opt ${id===chosenEggId?'selected':''}" data-id="${id}" onclick="selectEgg(${id})"><img class="egg-thumb" src="${spriteSrc('egg',id)}"/></div>`).join('')}
       </div>
@@ -12032,14 +12472,13 @@ function renderEggScreen(app){
         <div class="temp-zone" style="left:${EGG_IDEAL_MIN}%;width:${EGG_IDEAL_MAX-EGG_IDEAL_MIN}%;"></div>
         <div class="temp-marker" style="left:${temp}%;"></div>
       </div>
-      <div class="temp-readout">${inZone ? 'PERFECT — hold it here' : (temp < EGG_IDEAL_MIN ? 'TOO COLD' : 'TOO HOT')}</div>
+      <div class="temp-readout">${inZone ? 'PERFECT — let it slowly cool' : (temp < EGG_IDEAL_MIN ? 'TOO COLD — PRESS HEAT' : 'TOO HOT — WAIT')}</div>
       <div class="temp-btns">
-        <button class="mg-action-btn" onclick="eggCool()">− COOL</button>
-        <button class="mg-action-btn" onclick="eggWarm()">+ WARM</button>
+        <button class="mg-action-btn" onclick="eggHeat()">+ HEAT</button>
       </div>
     </div>
-    <div class="log">${(state.eggLog||['Keep checking in — the egg drifts out of range on its own.']).map(l=>`<div>${l}</div>`).join('')}</div>
-    <div class="footer-note">Good checks so far: ${state.goodChecks||0}/5. Hold the temperature in the ideal zone — a poorly-incubated egg hatches frail, with real lasting effects.</div>
+    <div class="log">${(state.eggLog||['The temperature slowly falls. Time HEAT pulses to return it to the perfect zone.']).map(l=>`<div>${l}</div>`).join('')}</div>
+    <div class="footer-note">Good heat pulses: ${Math.min(5,state.goodChecks||0)}/5. The gauge always cools at the same rate — wait until it drops, then time HEAT to put it back in the green zone.</div>
   `;
 }
 

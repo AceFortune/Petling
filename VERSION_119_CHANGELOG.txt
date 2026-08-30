@@ -1,0 +1,14 @@
+PETLING FIX 119 — DAY OUT SCREEN HIJACK FIX
+
+- Fixed the intermittent bug where fishing, casino games or other overlays could suddenly be replaced by the Day Out screen.
+- Root cause: Day Out starts a 30-second refresh timeout while its one-hour timer is active. The old callback only checked whether ANY #mg-overlay existed. If the player left Day Out and opened Fishing/Casino before that timeout fired, the stale Day Out callback saw the new overlay and replaced it with Day Out.
+- Day Out overlays now carry explicit data-mode="dayout" ownership.
+- The Day Out refresh callback now verifies:
+  1. the currently visible overlay is actually a Day Out overlay;
+  2. it belongs to the exact same outing/day/place/start time;
+  3. a Day Out minigame is not currently running.
+- Opening any non-Day-Out overlay now immediately cancels any pending Day Out refresh timeout.
+- Closing a Day Out overlay cancels its pending refresh timeout.
+- openOverlay now synchronises data-mode metadata when swapping overlay contents, preventing stale screen ownership metadata from leaking between modes.
+- This protects Fishing, Casino, Play Hub, Battle and other overlay-based screens from stale Day Out timers.
+- All Fix 118 Praise Fatigue, Fix 117 Discipline/Spoiling, Fix 116 Health Balance, Fix 115 Penny Pusher and prior systems are preserved.

@@ -1,0 +1,15 @@
+PETLING FIX 120 — INCUBATION TIMING REDESIGN
+
+- Completely removed the random incubation-slider drift.
+- The incubation temperature now moves in one predictable direction: it continuously and slowly cools.
+- Removed the manual COOL button.
+- There is now one HEAT button that raises the gauge by a fixed amount.
+- The skill is timing: wait for the marker to fall toward/below the lower part of the perfect zone, then press HEAT to place it back inside the green band.
+- Pressing HEAT too early can overshoot into TOO HOT, so button-spamming is ineffective.
+- The cooling rate is deterministic rather than random, making the minigame learnable and fair.
+- A correctly timed HEAT pulse counts toward incubation quality; repeated rapid taps cannot farm good checks.
+- The egg begins near the upper part of the perfect zone so the loop is immediately understandable.
+- Updated all incubation instructions, readouts and logs around the new mechanic.
+- Existing eggs from older saves are migrated into a safe/recoverable temperature without restarting their hatch timer.
+- The existing 30-minute hatch duration and consequences of poor incubation are preserved.
+- All Fix 119 Day Out hijack protection, Fix 118 Praise Fatigue, Fix 117 Discipline/Spoiling and prior systems are preserved.
