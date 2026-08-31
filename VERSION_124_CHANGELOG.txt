@@ -1,0 +1,12 @@
+PETLING FIX 124 — DREAM STARTUP RACE FIX
+
+- Re-audited the morning dream startup path after the earlier Fix 114 loading improvement.
+- Found a remaining race: loadState() rendered the game, immediately scheduled the Morning Dream overlay, and separately scheduled offline catch-up. On a morning with a pending dream those two jobs could compete, allowing catch-up/render work to replace or delay the dream UI and leave the startup/loading state visible far longer than intended.
+- Morning Dream presentation is now strictly gated until startup catch-up has completely finished.
+- Offline simulation/evolution/return-from-absence runs first, then the caught-up Petling screen renders, then the browser receives two paint frames, and only then can the Morning Dream/Gift overlay appear.
+- Added startupCatchupRunning/startupCatchupFinished guards so maybeShowMorningSurprise() cannot race an in-progress startup render.
+- Removed the early morning-surprise schedule when deferred catch-up exists.
+- Weather/geolocation startup is now delayed by 1.2 seconds because it is non-essential and should not compete with the initial Petling/dream render.
+- Added a 1.8-second boot-shell watchdog: if an unexpected startup/storage problem leaves the WAKING YOUR PETLING shell present, the game attempts a safe render rather than displaying an indefinite loading screen.
+- Existing dreams, morning gifts, offline progression and return-from-absence simulation remain active.
+- Fix 123 Day Out screen repair, Fix 122 minigame repair and all prior systems are preserved.
